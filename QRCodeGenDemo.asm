@@ -146,6 +146,10 @@ QR_LST_SIZE = . - qrCodeLst
 ; M A C R O S
 ;===============================================================================
 
+  MAC BIT_B
+    .byte   $24
+  ENDM
+
   MAC BIT_W
     .byte   $2c
   ENDM

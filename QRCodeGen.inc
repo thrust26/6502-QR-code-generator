@@ -83,7 +83,7 @@
   MAC _DRAW_CODEWORDS
 ;-----------------------------------------------------------
 ; Note: This part has the maximum RAM usage
-.right  = tmpVars+0
+.right1  = tmpVars+0
 .vert   = tmpVars+1
 .j      = tmpVars+2
 .y      = tmpVars+3
@@ -97,29 +97,31 @@
     _BLACK_FUNC         ; returns with X = 0
   ENDIF
 ; int i = 0;  // Bit index into the data
+;    ldx     #0
 ; 2600 code has data in reversed order
     stx     .iBit
     lda     #TOTAL_LEN-1
     sta     .iByte
 ; // Do the funny zigzag scan
+; Note: 2600 code has .right1 increased by 1
 ; for (int right = qrsize - 1; right >= 1; right -= 2) {  // Index of right column in each column pair
-    ldy     #QR_SIZE - 1
+    ldy     #QR_SIZE-1+1
 .loopRight
 ;  if (right == 6)
-    cpy     #6
+    cpy     #6+1
     bne     .not6
 ;    right = 5;
     dey                 ; skip the timing column
 .not6
-    sty     .right
+    sty     .right1
   IF QR_OVERLAP
 ; overwrite shared data
-    cpy     #16
+    cpy     #16+1
     bne     .skipBlackMiddle
 ; blacken the middle function modules in the bitmap
     _BLACK_MIDDLE
 .skipBlackMiddle
-    cpy     #8
+    cpy     #8+1
     bne     .skipBlackLeft
 ; blacken the left function modules in the bitmap
     _BLACK_LEFT
@@ -129,39 +131,33 @@
     ldy     #QR_SIZE-1
 .loopVert
     sty     .vert
-;     for (int j = 0; j < 2; j++) {
-    ldy     #-1
-.loopJ
-    iny
-    sty     .j
 ;       bool upward = ((right + 1) & 2) != 0; // 2600 code works in reverse
-    ldx     .vert
-    lda     .right
-    clc
-    adc     #1
-    and     #$2
+    lda     .right1
+    and     #$02
     bne     .notUp
 ;       int y = upward ? qrsize - 1 - vert : vert;  // Actual y coordinate
-    lda     #QR_SIZE-1
+    lda     #QR_SIZE-1;+1
     sec
     sbc     .vert
-    tax
-.notUp
-    stx     .y
-;       int x = right - j;  // Actual x coordinate
-    lda     .right
-    sec
-    sbc     .j
-;    sta     .x
     tay
+.notUp
+    sty     .y
+;     for (int j = 0; j < 2; j++) {
+; some tricky code with .j here
+    ldy     .right1
+    BIT_B
+.loopJ
+    dey
+    sty     .j
+;       int x = right - j;  // Actual x coordinate
+    dey
 ;       if (!getModule(qrcode, x, y) && i < dataLen * 8) {
 ;    ldy     .x
-;    ldx     .y
+    ldx     .y
     jsr     CheckPixel
     bne     .skipPixel
-    ldx     .iByte
-    bmi     .skipPixel
 ;         bool black = getBit(data[i >> 3], 7 - (i & 7));
+    ldx     .iByte
     lda     data,x
     ldx     .iBit
     and     BitMask,x
@@ -170,30 +166,33 @@
 ;    ldy     .x
     ldx     .y
     jsr     InvertPixel
+    ldx     .iBit
 .skipInv
 ;         i++;
-    ldy     .iBit
-    iny
-    tya
+    inx
+    txa
     and     #$07
     sta     .iBit
     bne     .skipByte
     dec     .iByte
+    bmi     .exitDraw       ; 2600 code exits here!
 .skipByte
 ;       }
 .skipPixel
     ldy     .j
+    cpy     .right1
     beq     .loopJ
 ;     } // for j
     ldy     .vert
     dey
     bpl     .loopVert
 ;   } // for vert
-    ldy     .right
+    ldy     .right1
     dey
     dey
-    bpl     .loopRight
+    bpl     .loopRight      ; unconditional!
 ; } // for right
+.exitDraw
   ENDM
 
 ;-----------------------------------------------------------
