@@ -14,7 +14,7 @@ If you make use of my code or have questions, please let me know.
 - assembler switches to taylor generator to your needs
 - code size optimized for minimal RAM and ROM space 
 - all eight mask pattern supported
-- Atari 2600 demo code
+- Atari 2600 demo code (randomly generates some Atari 2600 related messages)
 - generator code for Reed-Solomon ECC generator polygons accompanied
 
 ## Limitations
