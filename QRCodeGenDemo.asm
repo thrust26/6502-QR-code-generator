@@ -38,9 +38,9 @@ NTSC            = 1
 
 ; QR Code Generator Switches
 QR_VERSION      = 2     ; 1, 2 or 3 (TODO 1 and 3)
-QR_LEVEL        = 1     ; 0 (L) or 1 (M) (TODO: 2 (Q) and 3 (H))
+QR_LEVEL        = 1     ; 0 (L), 1 (M), 2 (Q) and 3 (H))
 QR_OVERLAP      = 1     ; overlaps input and output data to save RAM (0 not tested!)
-QR_SINGLE_MASK  = 1     ; (-255) if 1 uses only 1 of the 8 mask pattern
+QR_SINGLE_MASK  = 0     ; (-255) if 1 uses only 1 of the 8 mask pattern
 QR_PADDING      = 1     ; (+22) add padding bytes
 
   IF QR_VERSION = 1 || QR_VERSION = 3
@@ -85,7 +85,7 @@ msgData     = data + QR_DEGREE  ; (QR_MAX_DATA = 28 bytes)
 ;- - - - - - - - - - - - - - - - - - - -
 ; The QR code overlaps the data! It overwrites the data while being drawn.
   IF QR_OVERLAP
-qrCodeLst   = data + 6 ; all but 6 bytes overlap (version 2 only!)
+qrCodeLst   = data + 6   ; all but 6 bytes overlap (version 2 only!)
             ds NUM_FIRST + QR_SIZE*3 - QR_TOTAL + 6     ; 38 bytes
   ELSE
 qrCodeLst   ds NUM_FIRST + QR_SIZE*3                    ; 76 bytes
@@ -250,23 +250,23 @@ DrawScreen SUBROUTINE
 .tmpFirst    = tmpVars
 
 ; the QR code kernel
-.loopKernel                 ;           @55
+.loopKernel                 ;           @53
     lda     FirstIdxTbl,x   ; 4*
-    cmp     #1
+    cmp     #1              ; 2
     bcs     .newFirst       ; 2/3
     lsr     .tmpFirst       ; 5
-    bpl     .endFirst       ; 3 = 14    unconditional
+    bpl     .endFirst       ; 3 = 16    unconditional
 
 .newFirst                   ;           @62
 ; $bf/$3f | $01 | $fe
     bne     .enterLoop      ; 2/3
     lda     firstMsl        ; 3
 .enterLoop
-    sta     .tmpFirst       ; 3 =  7
-.endFirst                   ;           @69
+    sta     .tmpFirst       ; 3 =  8
+.endFirst                   ;           @70/69
     ldy     #2              ; 2
 .loopBlock
-    sta     WSYNC           ; 3         @74
+    sta     WSYNC           ; 3         @75/74
 ;---------------------------------------
 ;M1-P0-P1-P0
     lda     .tmpFirst       ; 3
@@ -276,13 +276,17 @@ DrawScreen SUBROUTINE
     sta     GRP1            ; 3
     lda     grp0LLst,x      ; 4
     sta     GRP0            ; 3
-    SLEEP   17              ;17
+    SLEEP   17-7            ;10
     lda     grp0RLst,x      ; 4
-    dey                     ; 2
-    sta     GRP0            ; 3 = 40    @48
-    bne     .loopBlock      ; 3/2
+    dey                     ; 2 = 30
+    cpy     #$01            ; 2
+    bne     .isff           ; 2/3
+    BIT_B                   ; 1
+.isff
     dex                     ; 2
-    bpl     .loopKernel     ; 3/2=7/6
+    sta     GRP0            ; 3 = 10    @48
+    bcs     .loopBlock      ; 2/3
+    bpl     .loopKernel     ; 3/2=5/4
     sta     WSYNC
 ;---------------------------------------------------------------
     sty     ENAM1

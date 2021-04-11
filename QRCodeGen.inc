@@ -614,7 +614,47 @@ FormatHi
     .byte   %00101110
     .byte   %01000000
    ENDIF
-; TODO: levels Q and H
+   IF QR_LEVEL = 2 ; Q
+FormatLo
+    .byte   %01101010
+    .byte   %01100000
+    .byte   %01111110
+    .byte   %01110100
+    .byte   %01001001
+    .byte   %01000011
+    .byte   %01011101
+    .byte   %01010111
+FormatHi
+    .byte   %10111110
+    .byte   %11010000
+    .byte   %01100010
+    .byte   %00001100
+    .byte   %01101000
+    .byte   %00000110
+    .byte   %10110100
+    .byte   %11011010
+   ENDIF
+   IF QR_LEVEL = 3 ; H
+FormatLo
+    .byte   %00101101
+    .byte   %00100111
+    .byte   %00111001
+    .byte   %00110011
+    .byte   %00001110
+    .byte   %00000100
+    .byte   %00011010
+    .byte   %00010000
+FormatHi
+    .byte   %00010010
+    .byte   %01111100
+    .byte   %11001110
+    .byte   %10100000
+    .byte   %11000100
+    .byte   %10101010
+    .byte   %00011000
+    .byte   %01110110
+   ENDIF
+  ENDIF ; /QR_SINGLE_MASK = 0
 
 ; position of the 15 type information bits
 FormatX1
