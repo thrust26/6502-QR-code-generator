@@ -1,3 +1,5 @@
+; Generate ECC Reed-Solomon ECC generator polygon for given degree
+
     processor 6502
 
 BASE_ADR    = $f800
