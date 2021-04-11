@@ -7,6 +7,8 @@ This project provides a simple QR code generator for the 650x family.
 Note: 
 The code is mostly specifically taylored for the Atari 2600 and a version 2 QR code. Other platforms or QR code versions have not been tested. But it should be adaptable without too major problems.
 
+If you make use of my code or have questions, please let me know.
+
 ## Features
 - easy to use DASM macros
 - assembler switches to taylor generator to your needs
