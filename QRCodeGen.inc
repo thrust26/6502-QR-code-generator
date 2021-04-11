@@ -423,24 +423,32 @@ QR_TOTAL    = QR_MAX_DATA + QR_DEGREE ; 44
 ;-----------------------------------------------------------
   MAC _DRAW_FORMAT
 ;-----------------------------------------------------------
+  IF QR_SINGLE_MASK
+   IF QR_VERSION = 2 || QR_VERSION = 3
+; invert 1st pixel of 1st copy (bit 0 not set in formats Q and H)
+    ldy     #0
+    ldx     #QR_SIZE-9
+    jsr     InvertPixel
+   ENDIF
+  ELSE
 .idx    = tmpVars
 
     ldy     #QR_FORMATS-1
 .loopFormat
     sty     .idx
     cpy     #8
-  IF QR_SINGLE_MASK
-    lda     #%10101000
-    and     BitMask,y
-    bcc     .lowFormat
-    lda     #%00100100
-  ELSE
+;  IF QR_SINGLE_MASK
+;    lda     #%10101000
+;    and     BitMask,y
+;    bcc     .lowFormat
+;    lda     #%00100100
+;  ELSE
     ldx     qrPattern
     lda     FormatLo,x
     and     BitMask,y
     bcc     .lowFormat
     lda     FormatHi,x
-  ENDIF
+;  ENDIF
     and     BitMask-8,y
 .lowFormat
     beq     .skipFormat
@@ -457,6 +465,7 @@ QR_TOTAL    = QR_MAX_DATA + QR_DEGREE ; 44
 .skipFormat
     dey
     bpl     .loopFormat
+  ENDIF
   ENDM
 
 ; ********** The user macros start here: **********
@@ -591,8 +600,8 @@ FormatHi
     .byte   %00110000
     .byte   %10000010
     .byte   %11101100
-  ENDIF
-  IF QR_LEVEL = 1 ; M
+   ENDIF
+   IF QR_LEVEL = 1 ; M
 FormatLo
     .byte   %10101000
     .byte   %10100010
@@ -613,7 +622,6 @@ FormatHi
     .byte   %01000000
    ENDIF
 ; TODO: levels Q and H
-  ENDIF
 
 ; position of the 15 type information bits
 FormatX1
@@ -630,6 +638,7 @@ FormatX2
     ds      7, 8
     .byte   QR_SIZE-8, QR_SIZE-7, QR_SIZE-6, QR_SIZE-5
     .byte   QR_SIZE-4, QR_SIZE-3, QR_SIZE-2, QR_SIZE-1
+  ENDIF ; QR_SINGLE_MASK = 0
 
 BitMask
     .byte   $80, $40, $20, $10, $8, $4, $2, $1

@@ -9,6 +9,7 @@
 ; + multiple pattern formats
 ;   + apply pattern
 ;   x evaluate pattern (very slow!)
+;   + optimize single pattern for space
 ; - support multiple QR code versions
 ; o support multiple QR code levels
 ; - try to optimize function pattern (SetPixel)
@@ -26,6 +27,7 @@
     include vcs.h
   LIST ON
 
+
 ;===============================================================================
 ; A S S E M B L E R - S W I T C H E S
 ;===============================================================================
@@ -38,7 +40,7 @@ NTSC            = 1
 QR_VERSION      = 2     ; 1, 2 or 3 (TODO 1 and 3)
 QR_LEVEL        = 1     ; 0 (L), 1 (M), 2 (Q) and 3 (H)
 QR_OVERLAP      = 1     ; overlaps input and output data to save RAM (0 not tested!)
-QR_SINGLE_MASK  = 0     ; (-156) if 1 uses only 1 of the 8 mask pattern
+QR_SINGLE_MASK  = 0     ; (-248) if 1 uses only 1 of the 8 mask pattern
 QR_PADDING      = 1     ; (+22) add padding bytes
 
   IF QR_VERSION = 1 || QR_VERSION = 3
@@ -46,6 +48,7 @@ QR_PADDING      = 1     ; (+22) add padding bytes
     ECHO    "ERROR: Version", [QR_VERSION]d, "unsupported by demo code"
     ERR
   ENDIF
+
 
 ;===============================================================================
 ; C O N S T A N T S
@@ -439,7 +442,7 @@ BitMapCode
 ;---------------------------------------------------------------
 CheckPixel SUBROUTINE
 ;---------------------------------------------------------------
-; Platform specific code. Must NOT change X and Y registers!
+; Platform and version specific code. Must NOT change X and Y registers!
 ; X = y; Y = x
 ; determine 8 bit column (0..2) or missile columns
     tya
@@ -484,7 +487,7 @@ CheckPixel SUBROUTINE
 ;---------------------------------------------------------------
 InvertPixel SUBROUTINE
 ;---------------------------------------------------------------
-; Platform specific code. Must NOT change X and Y registers!
+; Platform and version specific code. Must NOT change X and Y registers!
 ; X = y; Y = x
 ; determine 8 bit column (0..2) or missile column
     tya
@@ -532,180 +535,23 @@ _QR_TOTAL SET _QR_TOTAL + . - BitMapCode
     org     BASE_ADR + $600
 
 FunctionModulesData
-
 ; Platform and version specific function module data definition
-BlackGfx
-LeftBlack
-GRP0LBlack
-    .byte   %11111111 ; constant, bit 0 of 2nd format copy, level
-    .byte   %11111111 ; constant, bit 1 of 2nd format copy, level
-    .byte   %11111111 ; constant, bit 2 of 2nd format copy, pattern
-    .byte   %11111111 ; constant, bit 3 of 2nd format copy, pattern
-    .byte   %11111111 ; constant, bit 4 of 2nd format copy, pattern
-    .byte   %11111111 ; constant, bit 5 of 2nd format copy, ECC
-    .byte   %11111111 ; constant, bit 6 of 2nd format copy, ECC
-    .byte   %11111111 ; constant, 1 (dark module)
-    .byte   %00000100
-    .byte   %00000100
-    .byte   %00000100
-    .byte   %00000100
-    .byte   %00000100
-    .byte   %00000100
-    .byte   %00000100
-    .byte   %00000100
-    .byte   %11111111 ; constant, bits 1..7 of 1st format copy
-    .byte   %11111111 ; constant, bit  8 of 1st format copy, ECC
-    .byte   %11111111 ; constant, 1 (timing bit)
-    .byte   %11111111 ; constant, bit  9 of 1st format copy, ECC
-    .byte   %11111111 ; constant, bit 10 of 1st format copy, ECC
-    .byte   %11111111 ; constant, bit 11 of 1st format copy, ECC
-    .byte   %11111111 ; constant, bit 12 of 1st format copy, ECC
-    .byte   %11111111 ; constant, bit 13 of 1st format copy, ECC
-    .byte   %11111111 ; constant, bit 14 of 1st format copy, ECC
-;FirstBlack
-    .byte   %00000000
-GRP1Black
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000001
-    .byte   %00000001
-    .byte   %00000001
-    .byte   %00000001
-    .byte   %00000001
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %11111111
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-GRP0RBlack
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %11110000
-    .byte   %11110000
-    .byte   %11110000
-    .byte   %11110000
-    .byte   %11110000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %11111111 ; constant, bits 7..14 of 2nd format copy
-    .byte   %11111111 ; constant
-    .byte   %11111111 ; constant
-    .byte   %11111111 ; constant
-    .byte   %11111111 ; constant
-    .byte   %11111111 ; constant
-    .byte   %11111111 ; constant
-    .byte   %11111111 ; constant
-    .byte   %11111111 ; constant
 
-EorGfx
-;GRP0LEor
-    .byte   %00000011 ; constant, bit 0 of 2nd format copy, level
-    .byte   %11111011 ; constant, bit 1 of 2nd format copy, level
-    .byte   %10001011 ; constant, bit 2 of 2nd format copy, pattern
-    .byte   %10001011 ; constant, bit 3 of 2nd format copy, pattern
-    .byte   %10001011 ; constant, bit 4 of 2nd format copy, pattern
-    .byte   %11111011 ; constant, bit 5 of 2nd format copy, ECC
-    .byte   %00000011 ; constant, bit 6 of 2nd format copy, ECC
-    .byte   %11111110 ; constant, 1 (dark module)
-    .byte   %00000000
-    .byte   %00000100
-    .byte   %00000000
-    .byte   %00000100
-    .byte   %00000000
-    .byte   %00000100
-    .byte   %00000000
-    .byte   %00000100
-    .byte   %11111011 ; constant, bits 1..7 of 1st format copy
-    .byte   %11111111 ; constant, bit  8 of 1st format copy, ECC
-    .byte   %00000010 ; constant, 1 (timing bit)
-    .byte   %11111011 ; constant, bit  9 of 1st format copy, ECC
-    .byte   %10001011 ; constant, bit 10 of 1st format copy, ECC
-    .byte   %10001011 ; constant, bit 11 of 1st format copy, ECC
-    .byte   %10001011 ; constant, bit 12 of 1st format copy, ECC
-    .byte   %11111011 ; constant, bit 13 of 1st format copy, ECC
-    .byte   %00000011 ; constant, bit 14 of 1st format copy, ECC
-;FirstEor
-    .byte   %00000000
-;GRP1Eor
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %10101010
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-;GRP0REor
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %11100000
-    .byte   %10100000
-    .byte   %11100000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %00000000
-    .byte   %11111111 ; constant, bits 7..14 of 2nd format copy
-    .byte   %11111111 ; constant
-    .byte   %10000000 ; constant
-    .byte   %10111110 ; constant
-    .byte   %10100010 ; constant
-    .byte   %10100010 ; constant
-    .byte   %10100010 ; constant
-    .byte   %10111110 ; constant
-    .byte   %10000000 ; constant
+  IF QR_VERSION = 1
+    ERR ; TODO
+  ENDIF
 
-FirstIdxTbl ; for 25 pixel
-    ds 7, 0
-    .byte   $fe
-    ds 7, 0
-    .byte   $01
-    ds 7, 0
-    .byte   $bf
+  IF QR_VERSION = 2
+   IF QR_SINGLE_MASK
+    include FuncDataV2S.inc ; TODO: special pattern
+   ELSE
+    include FuncDataV2.inc
+   ENDIF
+  ENDIF
+
+  IF QR_VERSION = 3
+    ERR ; TODO
+  ENDIF
 
     ECHO    "QR Code function modules data:", [. - FunctionModulesData]d, "bytes"
 _QR_TOTAL SET _QR_TOTAL + . - FunctionModulesData
@@ -718,40 +564,38 @@ _QR_TOTAL SET _QR_TOTAL + . - FunctionModulesData
 ; Galadriel:
 MessageTbl
 Message0
-    .byte   "It began with the forging"
-;    .byte   "AtariAge/?s=_1X<|>[]*#"
+    .byte   "2002 - Thrust+ Platinum"
 Message1
-    .byte   "of the Great Rings. Three"
+    .byte   "2001 - Jammed "
 Message2
-    .byte   "were given to the Elves,"
+    .byte   "2005 - SWOOPS!"
 Message3
-    .byte   "immortal, wisest and"
+    .byte   "2017 - ZeroPage Homebrew"
 Message4
-    .byte   "fairest of all beings."
+    .byte   "2019 - Aardvark"
 Message5
-    .byte   "Seven to the Dwarf lords,"
+    .byte   "2012 - Boulder Dash"
 Message6
-    .byte   "great miners and craftsmen"
+    .byte   "2021 - VROOM!"
 Message7
-    .byte   "of the mountain halls. And"
+    .byte   "2020 - Robot City"
 Message8
-    .byte   "nine, nine rings were"
+    .byte   "2015 - Star Castle Arcade"
 Message9
-    .byte   "gifted to the race of men,"
+    .byte   "2001 - AtariAge"
 Message10
-    .byte   "who, above all else,"
+    .byte   "1998 - Atari 2600 Nexus"
 Message11
-    .byte   "desire power. But they"
+    .byte   "2009 - RAM Pong"
 Message12
-    .byte   "were, all of them,"
+    .byte   "1977 - Atari 2600"
 Message13
-    .byte   "deceived, for another Ring"
+    .byte   "2014 - Three·s"
 Message14
-    .byte   "was made. In the land of"
+    .byte   "1996 - Stella Mailing List"
 Message15
-    .byte   "Mordor, in the fires of..."
+    .byte   "1996 - Stella Emulator"
 MessageEnd
-
 ;    .byte   "..the single hardest thing"
 
 MessagePtrLo
@@ -775,4 +619,4 @@ MessagePtrHi
     ECHO    "----------------------------------------"
     ECHO    "QR Code total:", [_QR_TOTAL]d, "bytes"
     ECHO    ""
-    ECHO    "QR Code Version, Level (Degree): ", [QR_VERSION]d, ",", [QR_LEVEL]d, "(", [DEGREE]d, ")"
+    ECHO    "QR Code Version, Level (Degree): ", [QR_VERSION]d, ",", [QR_LEVEL]d, "(", [QR_DEGREE]d, ")"
