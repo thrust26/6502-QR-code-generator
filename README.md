@@ -21,7 +21,7 @@ If you make use of my code or have questions, please let me know.
 - only small, single block QR codes supported
 - only byte mode supported
 - no automatic mask pattern evaluation
-- tested only for version 2 QR codes (25x25)
+- tested only for version 2, level L and M QR codes (25x25)
 
 ## License
 Copyright © 2021 Thomas Jentzsch. (GPLV3 License)
