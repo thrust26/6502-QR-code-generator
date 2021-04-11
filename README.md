@@ -10,6 +10,7 @@ This project provides a simple QR code generator for the 650x family.
 - code size optimized for minimal RAM and ROM space 
 - all eight mask pattern supported
 - Atari 2600 demo code
+- generator code for Reed-Solomon RCC generator polygons accompanied
 
 ## Limitations
 - only small, single block QR codes supported
