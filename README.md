@@ -28,6 +28,6 @@ Copyright © 2021 Thomas Jentzsch. (GPLV3 License)
 
 The 6502 QR code generator is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+See [License](https://github.com/thrust26/6502-QR-code-generator/blob/master/LICENSE) for details.
 
-The Software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose and noninfringement. In no event shall the authors or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the Software or the use or other dealings in the Software.
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
