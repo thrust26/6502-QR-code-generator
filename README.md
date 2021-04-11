@@ -18,3 +18,10 @@ This project provides a simple QR code generator for the 650x family.
 - tested only for version 2 QR codes (25x25)
 
 ## License
+Copyright © 2021 Thomas Jentzsch. (GPLV3 License)
+
+This code is released under the GPLV3 license.
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+The Software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose and noninfringement. In no event shall the authors or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the Software or the use or other dealings in the Software.
