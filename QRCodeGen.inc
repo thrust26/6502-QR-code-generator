@@ -1,3 +1,72 @@
+;===============================================================================
+; Q R   C O D E   C O N S T A N T S
+;===============================================================================
+
+  IF QR_VERSION = 1 ;{
+QR_SIZE     = 21    ; 21x21 QR code
+QR_CAPACITY = 26
+   IF QR_LEVEL = 0
+QR_DEGREE      = 7  ; for version 1, level L QR codes
+   ENDIF
+   IF QR_LEVEL = 1
+QR_DEGREE      = 10 ; for version 1, level M QR codes
+   ENDIF
+   IF QR_LEVEL = 2
+QR_DEGREE      = 13 ; for version 1, level Q QR codes
+   ENDIF
+   IF QR_LEVEL = 3
+QR_DEGREE      = 17 ; for version 1, level H QR codes
+   ENDIF
+  ENDIF ;}
+
+  IF QR_VERSION = 2
+QR_SIZE     = 25    ; 25x25 QR code
+QR_CAPACITY = 44
+   IF QR_LEVEL = 0
+QR_DEGREE      = 10 ; for version 2, level L QR codes
+   ENDIF
+   IF QR_LEVEL = 1
+QR_DEGREE      = 16 ; for version 2, level M QR codes
+   ENDIF
+   IF QR_LEVEL = 2
+QR_DEGREE      = 22 ; for version 2, level Q QR codes
+   ENDIF
+   IF QR_LEVEL = 3
+QR_DEGREE      = 28 ; for version 2, level H QR codes
+   ENDIF
+  ENDIF
+
+  IF QR_VERSION = 3 ;{
+QR_SIZE     = 29    ; 29x29 QR code
+QR_CAPACITY = 70
+   IF QR_LEVEL = 0
+QR_DEGREE      = 15 ; for version 3, level L QR codes
+   ENDIF
+   IF QR_LEVEL = 1
+QR_DEGREE      = 26 ; for version 3, level M QR codes
+   ENDIF
+   IF QR_LEVEL = 2 || QR_LEVEL = 3
+    ECHO    ""
+    ECHO    "ERROR: Version 3, Level", [QR_LEVEL]d, "not supported"
+    ERR
+   ENDIF
+  ENDIF ;}
+
+QR_MAX_DATA = QR_CAPACITY - QR_DEGREE
+
+QR_MODE     = %0100 ; byte mode
+QR_POLY     = $11d  ; GF(2^8) is based on 9 bit polynomial
+                    ; x^8 + x^4 + x^3 + x^2 + 1 = 0x11d
+QR_FORMATS  = 15    ; 15 type information bits
+
+QR_MAX_MSG  = QR_MAX_DATA - 2
+QR_TOTAL    = QR_MAX_DATA + QR_DEGREE ; 44
+
+
+;===============================================================================
+; Q R   C O D E   M A C R O S
+;===============================================================================
+
 ; The following code has been partially converted from the C code of the
 ; QR code generator found at https://github.com/nayuki/QR-Code-generator
 
@@ -9,15 +78,15 @@
 
 ; memset(result, 0, 16); // done in START_TEXT
 ; for (int i = dataLen-1; i >= 0; i--) {  // Polynomial division
-    ldx     #MAX_DATA-1
+    ldx     #QR_MAX_DATA-1
 .loopI
     stx     .i
 ;   uint8_t factor = data[i] ^ result[degree - 1];
     lda     msgData,x
-    eor     remainder + DEGREE - 1
+    eor     remainder + QR_DEGREE - 1
     sta     .factor
 ;   memmove(&result[1], &result[0], (size_t)(16 - 1) * sizeof(result[0]));
-    ldx     #DEGREE-1
+    ldx     #QR_DEGREE-1
 .loopMove
     lda     remainder-1,x
     sta     remainder,x
@@ -27,7 +96,7 @@
     lda     #0
     sta     remainder
 ;   for (int j = 16-1; j >= 0; j--)
-    ldx     #DEGREE-1
+    ldx     #QR_DEGREE-1
 .loopJ
 ;     result[j] ^= reedSolomonMultiply(generator[j], factor);
     lda     Generator,x
@@ -65,7 +134,7 @@
 ;   z = (uint8_t)((z << 1) ^ ((z >> 7) * 0x11D));
     asl
     bcc     .skipEorPoly
-    eor     #<POLY
+    eor     #<QR_POLY
 .skipEorPoly
 ;   z ^= ((y >> i) & 1) * x;
     asl     .y
@@ -100,7 +169,7 @@
 ;    ldx     #0
 ; 2600 code has data in reversed order
     stx     .iBit
-    lda     #TOTAL_LEN-1
+    lda     #QR_TOTAL-1
     sta     .iByte
 ; // Do the funny zigzag scan
 ; Note: 2600 code has .right1 increased by 1
@@ -356,7 +425,7 @@
 ;-----------------------------------------------------------
 .idx    = tmpVars
 
-    ldy     #NUM_FORMAT-1
+    ldy     #QR_FORMATS-1
 .loopFormat
     sty     .idx
     cpy     #8
@@ -402,20 +471,20 @@
     lsr
     lsr
     lsr
-    ora     #(MODE << 4)
-; (MODE << 4) | (MSG_LEN >> 4)
-    sta     msgData + MAX_DATA - 1
+    ora     #(QR_MODE << 4)
+; (QR_MODE << 4) | (MSG_LEN >> 4)
+    sta     msgData + QR_MAX_DATA - 1
     txa
     asl
     asl
     asl
     asl
 ; (MSG_LEN << 4)
-    sta     msgData + MAX_DATA - 2
-    lda     #MAX_DATA - 3
+    sta     msgData + QR_MAX_DATA - 2
+    lda     #QR_MAX_DATA - 3
     sta     msgIdx
 ; clear the remaining data buffer
-    ldx     #TOTAL_LEN-3
+    ldx     #QR_TOTAL-3
     lda     #0
 .loopClear
     sta     data,x
@@ -450,7 +519,7 @@
    IF QR_PADDING
 .msgLen     = tmpVars
 ; pad with optional filler bytes (QR code works without too)
-    lda     #MAX_MSG - 1
+    lda     #QR_MAX_MSG - 1
     sec
     sbc     .msgLen
     bcc     .noPadding
@@ -566,18 +635,22 @@ BitMask
     .byte   $80, $40, $20, $10, $8, $4, $2, $1
 
 Generator ; data in reversed order!
-  IF DEGREE = 7
+  IF QR_DEGREE = 7
     .byte   $75, $44, $0b, $a4, $9a, $7a, $7f
   ENDIF
-  IF DEGREE = 10
+  IF QR_DEGREE = 10
     .byte   $c1, $9d, $71, $5f, $5e, $c7, $6f, $9f
     .byte   $c2, $d8
   ENDIF
-  IF DEGREE = 15
+  IF QR_DEGREE = 13
+    .byte   $87, $84, $53, $2b, $2e, $0d, $34, $11
+    .byte   $b1, $11, $e3, $49, $89
+  ENDIF
+  IF QR_DEGREE = 15
     .byte   $1a, $86, $20, $97, $84, $8b, $69, $69
     .byte   $0a, $4a, $70, $a3, $6f, $c4, $1d
   ENDIF
-  IF DEGREE = 16
+  IF QR_DEGREE = 16
 ; Reed-Solomon ECC generator polynomial for degree 16
 ; g(x)=(x+1)(x+?)(x+?^2)(x+?^3)...(x+?^15)
 ; = x^16+3bx^15+0dx^14+68x^13+bdx^12+44x^11+d1x^10+1e^x9+08x^8
@@ -585,13 +658,30 @@ Generator ; data in reversed order!
     .byte   $3b, $24, $32, $62, $e5, $29, $41, $a3
     .byte   $08, $1e, $d1, $44, $bd, $68, $0d, $3b
   ENDIF
-  IF DEGREE = 26
+  IF QR_DEGREE = 17
+    .byte   $4f, $63, $7d, $35, $55, $86, $8f, $29
+    .byte   $f9, $53, $c5, $16, $77, $78, $53, $42
+    .byte   $77
+  ENDIF
+  IF QR_DEGREE = 22
+    .byte   $f5, $91, $1a, $e6, $da, $56, $fd, $43
+    .byte   $7b, $1d, $89, $1c, $28, $45, $bd, $13
+    .byte   $f4, $b6, $b0, $83, $b3, $59
+  ENDIF
+  IF QR_DEGREE = 26
     .byte   $5e, $2b, $4d, $92, $90, $46, $44, $87
     .byte   $2a, $e9, $75, $d1, $28, $91, $18, $ce
     .byte   $38, $4d, $98, $c7, $62, $88, $04, $b7
     .byte   $44, $f6
   ENDIF
-DEGREE = . - Generator  ; verify data
+  IF QR_DEGREE = 28
+    .byte   $c5, $3a, $4a, $b0, $93, $79, $64, $b5
+    .byte   $7f, $e9, $77, $75, $38, $f7, $0c, $a7
+    .byte   $29, $64, $ae, $67, $96, $d0, $fb, $12
+    .byte   $0d, $1c, $09, $fc
+  ENDIF
+
+QR_DEGREE = . - Generator  ; verify data
 
     ECHO    "QR Code encoding data:", [. - QRCodeData]d, "bytes"
 _QR_TOTAL SET _QR_TOTAL + . - QRCodeData

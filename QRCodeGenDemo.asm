@@ -34,49 +34,12 @@ BASE_ADR        = $f000
 
 NTSC            = 1
 
-; QR Switches
+; QR Code Generator Switches
 QR_VERSION      = 2     ; 1, 2 or 3 (TODO 1 and 3)
-QR_LEVEL        = 1     ; 0 (L) or 1 (M) (TODO Q and H)
+QR_LEVEL        = 1     ; 0 (L), 1 (M), 2 (Q) and 3 (H)
 QR_OVERLAP      = 1     ; overlaps input and output data to save RAM (0 not tested!)
 QR_SINGLE_MASK  = 0     ; (-156) if 1 uses only 1 of the 8 mask pattern
 QR_PADDING      = 1     ; (+22) add padding bytes
-
-
-;===============================================================================
-; C O N S T A N T S
-;===============================================================================
-
-; QR code constants
-  IF QR_VERSION = 1 ;{
-QR_SIZE     = 21    ; 21x21 QR code
-   IF QR_LEVEL = 0
-DEGREE      = 7     ; for version 1, level L QR codes
-MAX_DATA    = 17+2
-   ELSE
-DEGREE      = 10    ; for version 1, level M QR codes
-MAX_DATA    = 14+2
-   ENDIF
-  ENDIF ;}
-  IF QR_VERSION = 2
-QR_SIZE     = 25    ; 25x25 QR code
-   IF QR_LEVEL = 0
-DEGREE      = 10    ; for version 2, level L QR codes
-MAX_DATA    = 32+2
-   ELSE
-DEGREE      = 16    ; for version 2, level M QR codes
-MAX_DATA    = 26+2
-   ENDIF
-  ENDIF
-  IF QR_VERSION = 3 ;{
-QR_SIZE     = 29    ; 29x29 QR code
-   IF QR_LEVEL = 0
-DEGREE      = 15    ; for version 3, level L QR codes
-MAX_DATA    = 53+2
-   ELSE
-DEGREE      = 26    ; for version 3, level M QR codes
-MAX_DATA    = 42+2
-   ENDIF
-  ENDIF ;}
 
   IF QR_VERSION = 1 || QR_VERSION = 3
     ECHO    ""
@@ -84,17 +47,11 @@ MAX_DATA    = 42+2
     ERR
   ENDIF
 
-MODE        = %0100 ; byte mode
-POLY        = $11d  ; GF(2^8) is based on 9 bit polynomial
-                    ; x^8 + x^4 + x^3 + x^2 + 1 = 0x11d
-NUM_FORMAT  = 15    ; 15 type information bits
-
-MAX_MSG     = MAX_DATA - 2
-TOTAL_LEN   = MAX_DATA + DEGREE ; 44
+;===============================================================================
+; C O N S T A N T S
+;===============================================================================
 
 NUM_FIRST   = 1     ; left top 9 and bottom 8 bits are fixed!
-
-; other constants
 RND_EOR_VAL = $b4
 
 _QR_TOTAL   SET 0
@@ -119,14 +76,14 @@ msgIdx      = tmpVars + 3
 qrPattern   .byte
   ENDIF
 ;---------------------------------------
-data        ds TOTAL_LEN        ; 44 bytes
-remainder   = data              ; (DEGREE = 16 bytes)
-msgData     = data + DEGREE     ; (MAX_DATA = 28 bytes)
+data        ds QR_TOTAL        ; 44 bytes
+remainder   = data              ; (QR_DEGREE = 16 bytes)
+msgData     = data + QR_DEGREE  ; (QR_MAX_DATA = 28 bytes)
 ;- - - - - - - - - - - - - - - - - - - -
 ; The QR code overlaps the data! It overwrites the data while being drawn.
   IF QR_OVERLAP
 qrCodeLst   = data + 6 ; all but 6 bytes overlap (version 2 only!)
-            ds NUM_FIRST + QR_SIZE*3 - TOTAL_LEN + 6    ; 38 bytes
+            ds NUM_FIRST + QR_SIZE*3 - QR_TOTAL + 6     ; 38 bytes
   ELSE
 qrCodeLst   ds NUM_FIRST + QR_SIZE*3                    ; 76 bytes
   ENDIF
@@ -134,7 +91,7 @@ grp0LLst    = qrCodeLst + QR_SIZE * 0
 firstMsl    = qrCodeLst + QR_SIZE * 1
 grp1Lst     = qrCodeLst + NUM_FIRST + QR_SIZE * 1
 grp0RLst    = qrCodeLst + NUM_FIRST + QR_SIZE * 2
-QR_LST_SIZE = . - qrCodeLst
+CODE_LST_SIZE = . - qrCodeLst
 ;---------------------------------------
 ; QR code total = 89/127 bytes
 
@@ -188,7 +145,7 @@ QR_LST_SIZE = . - qrCodeLst
 ;-----------------------------------------------------------
   MAC _BLACK_FUNC
 ;-----------------------------------------------------------
-    ldx     #QR_LST_SIZE-1
+    ldx     #CODE_LST_SIZE-1
 .loopBlack
     lda     BlackGfx,x
     sta     qrCodeLst,x
@@ -235,7 +192,7 @@ QR_LST_SIZE = . - qrCodeLst
 ;-----------------------------------------------------------
   MAC _DRAW_FUNC
 ;-----------------------------------------------------------
-    ldx     #QR_LST_SIZE-1
+    ldx     #CODE_LST_SIZE-1
 .loopBlack
     lda     qrCodeLst,x
     ora     BlackGfx,x

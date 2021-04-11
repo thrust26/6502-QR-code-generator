@@ -4,7 +4,7 @@
 
 BASE_ADR    = $f800
 
-DEGREE      = 26
+DEGREE      = 28
 POLY        = $11d  ; GF(2^8) is based on 9 bit polynomial
                     ; x^8 + x^4 + x^3 + x^2 + 1 = 0x11d
 
