@@ -423,14 +423,7 @@ QR_TOTAL    = QR_MAX_DATA + QR_DEGREE ; 44
 ;-----------------------------------------------------------
   MAC _DRAW_FORMAT
 ;-----------------------------------------------------------
-  IF QR_SINGLE_MASK
-   IF QR_VERSION = 3 || QR_VERSION = 4
-; invert 1st pixel of 1st copy (bit 0 not set in formats Q and H)
-    ldy     #0
-    ldx     #QR_SIZE-9
-    jsr     InvertPixel
-   ENDIF
-  ELSE
+  IF QR_SINGLE_MASK = 0
 .idx    = tmpVars
 
     ldy     #QR_FORMATS-1

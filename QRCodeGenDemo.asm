@@ -203,6 +203,13 @@ CODE_LST_SIZE = . - qrCodeLst
     sta     qrCodeLst,x
     dex
     bpl     .loopBlack
+
+   IF QR_SINGLE_MASK && (QR_VERSION = 3 || QR_VERSION = 4)
+; invert 1st pixel of 1st copy (bit 0 not set in formats Q and H)
+    ldy     #0
+    ldx     #QR_SIZE-9
+    jsr     InvertPixel
+   ENDIF
   ENDM
 
     include QRCodeGen.inc
