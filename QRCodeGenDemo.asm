@@ -10,9 +10,9 @@
 ;   + apply pattern
 ;   x evaluate pattern (very slow!)
 ;   + optimize single pattern for space
-; - support multiple QR code versions
+; x support multiple QR code versions
 ; o support multiple QR code levels
-; - try to optimize function pattern (SetPixel)
+; x try to optimize function pattern (SetPixel)
 ; x add logo (does NOT work for such small sizes)
 
 ;---------------------------------------------------------------
@@ -38,9 +38,9 @@ NTSC            = 1
 
 ; QR Code Generator Switches
 QR_VERSION      = 2     ; 1, 2 or 3 (TODO 1 and 3)
-QR_LEVEL        = 1     ; 0 (L), 1 (M), 2 (Q) and 3 (H)
+QR_LEVEL        = 1     ; 0 (L) or 1 (M) (TODO: 2 (Q) and 3 (H))
 QR_OVERLAP      = 1     ; overlaps input and output data to save RAM (0 not tested!)
-QR_SINGLE_MASK  = 0     ; (-248) if 1 uses only 1 of the 8 mask pattern
+QR_SINGLE_MASK  = 1     ; (-255) if 1 uses only 1 of the 8 mask pattern
 QR_PADDING      = 1     ; (+22) add padding bytes
 
   IF QR_VERSION = 1 || QR_VERSION = 3
@@ -245,13 +245,14 @@ DrawScreen SUBROUTINE
 ; the QR code kernel
 .loopKernel                 ;           @55
     lda     FirstIdxTbl,x   ; 4*
-    bne     .newFirst       ; 2/3
+    cmp     #1
+    bcs     .newFirst       ; 2/3
     lsr     .tmpFirst       ; 5
     bpl     .endFirst       ; 3 = 14    unconditional
 
 .newFirst                   ;           @62
-; $bf | $01 | $fe
-    bmi     .enterLoop      ; 2/3
+; $bf/$3f | $01 | $fe
+    bne     .enterLoop      ; 2/3
     lda     firstMsl        ; 3
 .enterLoop
     sta     .tmpFirst       ; 3 =  7
