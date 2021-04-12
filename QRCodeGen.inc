@@ -79,49 +79,6 @@ QR_TOTAL    = QR_MAX_DATA + QR_DEGREE ; 44
 ; QR code generator found at https://github.com/nayuki/QR-Code-generator
 
 ;-----------------------------------------------------------
-  MAC _RS_REMAINDER
-;-----------------------------------------------------------
-.i      = tmpVars+2
-.factor = tmpVars+3
-
-; memset(result, 0, 16); // done in START_TEXT
-; for (int i = dataLen-1; i >= 0; i--) {  // Polynomial division
-    ldx     #QR_MAX_DATA-1
-.loopI
-    stx     .i
-;   uint8_t factor = data[i] ^ result[degree - 1];
-    lda     msgData,x
-    eor     remainder + QR_DEGREE - 1
-    sta     .factor
-;   memmove(&result[1], &result[0], (size_t)(16 - 1) * sizeof(result[0]));
-    ldx     #QR_DEGREE-1
-.loopMove
-    lda     remainder-1,x
-    sta     remainder,x
-    dex
-    bne     .loopMove
-;   result[0] = 0;
-    lda     #0
-    sta     remainder
-;   for (int j = 16-1; j >= 0; j--)
-    ldx     #QR_DEGREE-1
-.loopJ
-;     result[j] ^= reedSolomonMultiply(generator[j], factor);
-    lda     Generator,x
-    ldy     .factor
-    _RS_MULT
-    eor     remainder,x
-    sta     remainder,x
-;   }
-    dex
-    bpl     .loopJ
-; }
-    ldx     .i
-    dex
-    bpl     .loopI
-  ENDM
-
-;-----------------------------------------------------------
 ; Returns the product of the two given field elements modulo GF(2^8/0x11D).
 ; All inputs are valid.
   MAC _RS_MULT
@@ -151,6 +108,114 @@ QR_TOTAL    = QR_MAX_DATA + QR_DEGREE ; 44
 .skipEorX
 ; }
     dey
+    bpl     .loopI
+  ENDM
+
+  IF QR_GENERATE
+; Computes a Reed-Solomon ECC generator polynomial for degree 16, storing in result[0 : 16-1].
+; This is implemented as a lookup table too (Generator)
+;-----------------------------------------------------------
+  MAC _RS_DIVISOR
+;-----------------------------------------------------------
+; E.g. g(x)=(x+1)(x+?)(x+?^2)(x+?^3)...(x+?^15)
+;          = x^16+3Bx^15+0Dx^14+68x^13+BDx^12+44x^11+d1x^10+1e^x9+08x^8
+;            +A3x^7+41x^6+29x^5+E5x^4+62x^3+32x^2+24x+3B
+.root   = tmpVars+2
+.i      = tmpVars+3
+
+; memset(qrGenerator, 1, 16);
+    ldx     #QR_DEGREE-1
+    stx     .i
+    ldy     #0
+.loopClear
+    sty     qrGenerator,x
+    dex
+    bne     .loopClear
+; qrGenerator[0] = 1;  // Start off with the monomial x^0
+    iny
+    sty     qrGenerator
+; uint8_t root = 1;
+    sty     .root
+; for (int i = 0; i < degree; i++) {
+.loopI
+; // Multiply the current product by (x - r^i)
+; for (int j = degree-1; j >= 0; j--) {
+    ldx     #QR_DEGREE-1
+.loopJ
+; qrGenerator[j] = reedSolomonMultiply(qrGenerator[j], root);
+    lda     qrGenerator,x
+    ldy     .root
+    jsr     RSMult
+; if (j)
+    dex
+    bmi     .skipEor
+; qrGenerator[j] ^= qrGenerator[j - 1];
+    eor     qrGenerator,x
+.skipEor
+    sta     qrGenerator+1,x
+    txa
+    bpl     .loopJ
+; root = reedSolomonMultiply(root, 0x02);
+    lda     .root
+    ldy     #$02
+    jsr     RSMult
+    sta     .root
+    dec     .i
+    bpl     .loopI
+  ENDM
+
+;-----------------------------------------------------------
+RSMult SUBROUTINE
+    _RS_MULT
+    rts
+;-----------------------------------------------------------
+  ENDIF ; /QR_GENERATE
+
+;-----------------------------------------------------------
+  MAC _RS_REMAINDER
+;-----------------------------------------------------------
+.i      = tmpVars+2
+.factor = tmpVars+3
+
+; memset(result, 0, 16); // done in START_TEXT
+; for (int i = dataLen-1; i >= 0; i--) {  // Polynomial division
+    ldx     #QR_MAX_DATA-1
+.loopI
+    stx     .i
+;   uint8_t factor = data[i] ^ result[degree - 1];
+    lda     msgData,x
+    eor     remainder + QR_DEGREE - 1
+    sta     .factor
+;   memmove(&result[1], &result[0], (size_t)(16 - 1) * sizeof(result[0]));
+    ldx     #QR_DEGREE-1
+.loopMove
+    lda     remainder-1,x
+    sta     remainder,x
+    dex
+    bne     .loopMove
+;   result[0] = 0;
+    lda     #0
+    sta     remainder
+;   for (int j = 16-1; j >= 0; j--)
+    ldx     #QR_DEGREE-1
+.loopJ
+;     result[j] ^= reedSolomonMultiply(generator[j], factor);
+    ldy     .factor
+  IF QR_GENERATE
+    lda     qrGenerator,x
+    jsr     RSMult
+  ELSE
+    lda     Generator,x
+    _RS_MULT
+  ENDIF
+    eor     remainder,x
+    sta     remainder,x
+;   }
+    dex
+    bpl     .loopJ
+; }
+    ldx     .i
+    dex
     bpl     .loopI
   ENDM
 
@@ -546,6 +611,11 @@ QR_TOTAL    = QR_MAX_DATA + QR_DEGREE ; 44
 ; This is the main macro to use!
 QRCodeCode
 
+  IF QR_GENERATE
+; generate the Reed-Solomon ECC generator polynomial
+RSDevisor
+    _RS_DIVISOR
+  ENDIF
 ; calculate the ECC
 RSRemainder
     _RS_REMAINDER
@@ -677,6 +747,7 @@ FormatX2
 BitMask
     .byte   $80, $40, $20, $10, $8, $4, $2, $1
 
+ IF QR_GENERATE = 0
 Generator ; data in reversed order!
   IF QR_DEGREE = 7
     .byte   $75, $44, $0b, $a4, $9a, $7a, $7f
@@ -725,6 +796,8 @@ Generator ; data in reversed order!
   ENDIF
 
 QR_DEGREE = . - Generator  ; verify data size
+
+ ENDIF ; /QR_GENERATE
 
     ECHO    "QR Code encoding data:", [. - QRCodeData]d, "bytes"
 _QR_TOTAL SET _QR_TOTAL + . - QRCodeData

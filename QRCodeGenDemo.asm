@@ -39,11 +39,13 @@ NTSC            = 1     ; 0 = PAL50
 ; QR Code Generator Switches
 QR_VERSION      = 2     ; 1, 2 or 3 (TODO 1 and 3)
 QR_LEVEL        = 1     ; 0 (L), 1 (M), 2 (Q) and 3 (H))
-QR_PADDING      = 1     ; (+22) add padding bytes
+QR_PADDING      = 1     ; (+22 bytes) add padding bytes (optional)
+QR_GENERATE     = 1     ; (+~12 bytes) generates Reed-Solomon ECC generator polynomial on-the-fly
+                        ; else uses built-in table
 
 ; Atari 2600 specific QR settings (set to 0 for other platforms)
 QR_OVERLAP      = 1     ; overlaps input and output data to save RAM (defined for version 2 only!)
-QR_SINGLE_MASK  = 0     ; (-255) if 1 uses only 1 of the 8 mask pattern
+QR_SINGLE_MASK  = 0     ; (-255 bytes) if 1 uses only 1 of the 8 mask pattern
 
   IF QR_VERSION = 1 || QR_VERSION = 3
     ECHO    ""
@@ -97,6 +99,9 @@ firstMsl    = qrCodeLst + QR_SIZE * 1
 grp1Lst     = qrCodeLst + NUM_FIRST + QR_SIZE * 1
 grp0RLst    = qrCodeLst + NUM_FIRST + QR_SIZE * 2
 CODE_LST_SIZE = . - qrCodeLst
+  IF QR_GENERATE
+qrGenerator ds QR_DEGREE
+  ENDIF
 ;---------------------------------------
 ; QR code total = 89/127 bytes
 
@@ -218,8 +223,6 @@ CODE_LST_SIZE = . - qrCodeLst
    ENDIF
   ENDM
 
-    include QRCodeGen.inc
-
 
 ;===============================================================================
 ; R O M - C O D E
@@ -307,6 +310,8 @@ DrawScreen SUBROUTINE
     stx     VBLANK
     rts
 ; DrawScreen
+
+    include QRCodeGen.inc
 
 ;---------------------------------------------------------------
 Start SUBROUTINE
