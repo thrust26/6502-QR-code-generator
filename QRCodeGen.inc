@@ -4,7 +4,6 @@
 
   IF QR_VERSION = 1 ;{
 QR_SIZE     = 21    ; 21x21 QR code
-QR_CAPACITY = 26
    IF QR_LEVEL = 0
 QR_DEGREE      = 7  ; for version 1, level L QR codes
    ENDIF
@@ -21,7 +20,6 @@ QR_DEGREE      = 17 ; for version 1, level H QR codes
 
   IF QR_VERSION = 2
 QR_SIZE     = 25    ; 25x25 QR code
-QR_CAPACITY = 44
    IF QR_LEVEL = 0
 QR_DEGREE      = 10 ; for version 2, level L QR codes
    ENDIF
@@ -38,7 +36,6 @@ QR_DEGREE      = 28 ; for version 2, level H QR codes
 
   IF QR_VERSION = 3 ;{
 QR_SIZE     = 29    ; 29x29 QR code
-QR_CAPACITY = 70
    IF QR_LEVEL = 0
 QR_DEGREE      = 15 ; for version 3, level L QR codes
    ENDIF
@@ -51,6 +48,17 @@ QR_DEGREE      = 26 ; for version 3, level M QR codes
     ERR
    ENDIF
   ENDIF ;}
+
+; Calculate capacity based on version
+_QR_VAL SET (QR_VERSION * 16 + 128) * QR_VERSION + 64
+  IF QR_VERSION >= 2
+_QR_NUM_ALIGN = QR_VERSION / 7 + 2
+_QR_VAL SET _QR_VAL - ((25 * _QR_NUM_ALIGN - 10) * _QR_NUM_ALIGN - 55)
+   IF QR_VERSION >= 7
+_QR_VAL SET _QR_VAL - 36
+   ENDIF
+  ENDIF
+QR_CAPACITY = _QR_VAL / 8
 
 QR_MAX_DATA = QR_CAPACITY - QR_DEGREE
 
@@ -423,25 +431,18 @@ QR_TOTAL    = QR_MAX_DATA + QR_DEGREE ; 44
 ;-----------------------------------------------------------
   MAC _DRAW_FORMAT
 ;-----------------------------------------------------------
-  IF QR_SINGLE_MASK = 0
+   IF QR_SINGLE_MASK = 0
 .idx    = tmpVars
 
     ldy     #QR_FORMATS-1
 .loopFormat
     sty     .idx
     cpy     #8
-;  IF QR_SINGLE_MASK
-;    lda     #%10101000
-;    and     BitMask,y
-;    bcc     .lowFormat
-;    lda     #%00100100
-;  ELSE
     ldx     qrPattern
     lda     FormatLo,x
     and     BitMask,y
     bcc     .lowFormat
     lda     FormatHi,x
-;  ENDIF
     and     BitMask-8,y
 .lowFormat
     beq     .skipFormat
@@ -458,7 +459,7 @@ QR_TOTAL    = QR_MAX_DATA + QR_DEGREE ; 44
 .skipFormat
     dey
     bpl     .loopFormat
-  ENDIF
+   ENDIF
   ENDM
 
 ; ********** The user macros start here: **********
@@ -656,7 +657,7 @@ FormatHi
    ENDIF
   ENDIF ; /QR_SINGLE_MASK = 0
 
-; position of the 15 type information bits
+; positions of the 15 type information bits
 FormatX1
     .byte   0, 1, 2, 3, 4, 5, 7, 8
     .byte   8, 8, 8, 8, 8, 8, 8
@@ -723,7 +724,7 @@ Generator ; data in reversed order!
     .byte   $0d, $1c, $09, $fc
   ENDIF
 
-QR_DEGREE = . - Generator  ; verify data
+QR_DEGREE = . - Generator  ; verify data size
 
     ECHO    "QR Code encoding data:", [. - QRCodeData]d, "bytes"
 _QR_TOTAL SET _QR_TOTAL + . - QRCodeData

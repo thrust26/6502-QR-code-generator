@@ -34,14 +34,16 @@
 
 BASE_ADR        = $f000
 
-NTSC            = 1
+NTSC            = 1     ; 0 = PAL50
 
 ; QR Code Generator Switches
 QR_VERSION      = 2     ; 1, 2 or 3 (TODO 1 and 3)
 QR_LEVEL        = 1     ; 0 (L), 1 (M), 2 (Q) and 3 (H))
-QR_OVERLAP      = 1     ; overlaps input and output data to save RAM (0 not tested!)
-QR_SINGLE_MASK  = 0     ; (-255) if 1 uses only 1 of the 8 mask pattern
 QR_PADDING      = 1     ; (+22) add padding bytes
+
+; Atari 2600 specific QR settings (set to 0 for other platforms)
+QR_OVERLAP      = 1     ; overlaps input and output data to save RAM (defined for version 2 only!)
+QR_SINGLE_MASK  = 0     ; (-255) if 1 uses only 1 of the 8 mask pattern
 
   IF QR_VERSION = 1 || QR_VERSION = 3
     ECHO    ""
@@ -148,6 +150,7 @@ CODE_LST_SIZE = . - qrCodeLst
 ;-----------------------------------------------------------
   MAC _BLACK_FUNC
 ;-----------------------------------------------------------
+; blacks all function/alignment and timing pattern
     ldx     #CODE_LST_SIZE-1
 .loopBlack
     lda     BlackGfx,x
@@ -161,6 +164,7 @@ CODE_LST_SIZE = . - qrCodeLst
 ;-----------------------------------------------------------
   MAC _BLACK_LEFT
 ;-----------------------------------------------------------
+; blacks all function/alignment and timing pattern of the left column
     ldx     #NUM_FIRST + QR_SIZE-1-8
 .loopBlackLeft
     lda     LeftBlack+8,x
@@ -172,6 +176,7 @@ CODE_LST_SIZE = . - qrCodeLst
 ;-----------------------------------------------------------
   MAC _BLACK_MIDDLE
 ;-----------------------------------------------------------
+; blacks all function/alignment and timing pattern of the middle column
     ldx     #QR_SIZE-1
 .loopBlackMiddle
     lda     GRP1Black,x
@@ -183,6 +188,7 @@ CODE_LST_SIZE = . - qrCodeLst
 ;-----------------------------------------------------------
   MAC _BLACK_RIGHT
 ;-----------------------------------------------------------
+; blacks all function/alignment and timing pattern of the right column
     ldx     #QR_SIZE
 .loopBlackRight
     lda     GRP0RBlack-1,x
@@ -264,7 +270,7 @@ DrawScreen SUBROUTINE
 .enterLoop
     sta     .tmpFirst       ; 3 =  8
 .endFirst                   ;           @70/69
-    ldy     #2              ; 2
+    ldy     #-2             ; 2
 .loopBlock
     sta     WSYNC           ; 3         @75/74
 ;---------------------------------------
@@ -276,15 +282,15 @@ DrawScreen SUBROUTINE
     sta     GRP1            ; 3
     lda     grp0LLst,x      ; 4
     sta     GRP0            ; 3
-    SLEEP   17-7            ;10
+    SLEEP   10              ;10 = 24
     lda     grp0RLst,x      ; 4
-    dey                     ; 2 = 30
-    cpy     #$01            ; 2
-    bne     .isff           ; 2/3
+    iny                     ; 2
+    cpy     #1              ; 2
+    bcc     .isZero         ; 2/3
     BIT_B                   ; 1
-.isff
+.isZero
     dex                     ; 2
-    sta     GRP0            ; 3 = 10    @48
+    sta     GRP0            ; 3 = 16    @48
     bcs     .loopBlock      ; 2/3
     bpl     .loopKernel     ; 3/2=5/4
     sta     WSYNC
@@ -572,7 +578,7 @@ _QR_TOTAL SET _QR_TOTAL + . - FunctionModulesData
 
     .byte   " QR Code Generator Demo V0.3 - (C)2021 Thomas Jentzsch "
 
-; messages MUST not be longer than 26 bytes for version 2, level M!
+; messages MUST NOT be longer than 26 bytes for version 2, level M!
 ; Galadriel:
 MessageTbl
 Message0
@@ -631,4 +637,5 @@ MessagePtrHi
     ECHO    "----------------------------------------"
     ECHO    "QR Code total:", [_QR_TOTAL]d, "bytes"
     ECHO    ""
-    ECHO    "QR Code Version, Level (Degree): ", [QR_VERSION]d, ",", [QR_LEVEL]d, "(", [QR_DEGREE]d, ")"
+    ECHO    "QR Code Version", [QR_VERSION]d, ", Level (Degree)", [QR_LEVEL]d, "(", [QR_DEGREE]d, "), Capacity", [QR_CAPACITY]d, "bytes"
+    ECHO    "  -> Message Space", [QR_CAPACITY-QR_DEGREE-2]d, "bytes"
