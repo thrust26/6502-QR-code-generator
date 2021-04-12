@@ -15,13 +15,14 @@ If you make use of my code or have questions, please let me know.
 - code size optimized for minimal RAM and ROM space 
 - all eight mask pattern supported
 - Atari 2600 demo code (randomly generates some Atari 2600 related messages)
-- generator code for Reed-Solomon ECC generator polygons accompanied
+- generator code for Reed-Solomon ECC generator polygons accompanied (can be integrated to compute on-the-fly)
 
 ## Limitations
 - only small, single block QR codes supported
 - only byte mode supported
 - no automatic mask pattern evaluation
-- tested only for version 2, level L and M QR codes (25x25)
+- tested only for version 2 QR codes (25x25)
+- memory organization and pixel checking/drawing has to be implemented platform specific; this includes the finder, alignment and timing pattern
 
 ## License
 Copyright © 2021 Thomas Jentzsch. (GPLV3 License)
