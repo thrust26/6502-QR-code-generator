@@ -22,7 +22,7 @@ If you make use of my code or have questions, please let me know.
 - only byte mode supported
 - no automatic mask pattern evaluation
 - tested only for version 2, level L and M QR codes (25x25)
-- memory organization and pixel drawing and checking has to be implemented platform specific
+- memory organization and pixel checking/drawing has to be implemented platform specific
 
 ## License
 Copyright © 2021 Thomas Jentzsch. (GPLV3 License)
