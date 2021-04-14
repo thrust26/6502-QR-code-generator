@@ -35,21 +35,31 @@
 BASE_ADR        = $f000
 
 NTSC            = 1     ; 0 = PAL50
+ATARI_2600      = 1     ; enable for Atari 2600 specific code
 
 ; QR Code Generator Switches
 QR_VERSION      = 2     ; 1, 2 or 3 (TODO 1 and 3)
 QR_LEVEL        = 1     ; 0 (L), 1 (M), 2 (Q) and 3 (H))
-QR_PADDING      = 1     ; (+22 bytes) add padding bytes (optional)
-QR_GENERATE     = 1     ; (+~12 bytes) generates Reed-Solomon ECC generator polynomial on-the-fly
+QR_PADDING      = 1     ; (+ 22 bytes) add padding bytes (optional)
+QR_GENERATE     = 0     ; (+~12 bytes) generates Reed-Solomon ECC generator polynomial on-the-fly
                         ; else uses built-in table
 
-; Atari 2600 specific QR settings (set to 0 for other platforms)
+; Atari 2600 specific QR settings (keep set to 0 for other platforms!)
+  IFCONST ATARI_2600
 QR_OVERLAP      = 1     ; overlaps input and output data to save RAM (defined for version 2 only!)
 QR_SINGLE_MASK  = 0     ; (-255 bytes) if 1 uses only 1 of the 8 mask pattern
+QR_DIRECT_DRAW  = 0     ; (+ 45 bytes) draw byte columns instead of individual pixel
+  ENDIF
 
-  IF QR_VERSION = 1 || QR_VERSION = 3
+  IF QR_VERSION != 2
     ECHO    ""
-    ECHO    "ERROR: Version", [QR_VERSION]d, "unsupported by demo code"
+    ECHO    "*** ERROR: Version", [QR_VERSION]d, "unsupported by demo code! ***"
+    ERR
+  ENDIF
+
+  IF QR_SINGLE_MASK = 1 && QR_DIRECT_DRAW = 0
+    ECHO    ""
+    ECHO    "*** ERROR: Unsupported assembler switches combination! ***"
     ERR
   ENDIF
 
@@ -76,7 +86,11 @@ random      .byte
 ;---------------------------------------
 ; QR code variables
 ; all byte counts based on version 2, level M QR code
+  IF QR_DIRECT_DRAW
 tmpVars     ds 6
+  ELSE
+tmpVars     ds 9
+  ENDIF
 
 msgIdx      = tmpVars + 3
   IF QR_SINGLE_MASK = 0
@@ -89,11 +103,16 @@ msgData     = data + QR_DEGREE  ; (QR_MAX_DATA = 28 bytes)
 ;- - - - - - - - - - - - - - - - - - - -
 ; The QR code overlaps the data! It overwrites the data while being drawn.
   IF QR_OVERLAP
-qrCodeLst   = data + 6   ; all but 6 bytes overlap (version 2 only!)
-            ds NUM_FIRST + QR_SIZE*3 - QR_TOTAL + 6     ; 38 bytes
+   IF QR_DIRECT_DRAW
+QR_NON_OVER = 6
+   ELSE
+QR_NON_OVER = 8
+   ENDIF
+qrCodeLst   = data + QR_NON_OVER    ; all but 6/8 bytes overlap (version 2 only!)
+            ds NUM_FIRST + QR_SIZE*3 - QR_TOTAL + QR_NON_OVER   ; 38/40 bytes
   ELSE
-qrCodeLst   ds NUM_FIRST + QR_SIZE*3                    ; 76 bytes
-  ENDIF
+qrCodeLst   ds NUM_FIRST + QR_SIZE*3                            ; 76 bytes
+  ENDIF ; /QR_OVERLAP
 grp0LLst    = qrCodeLst + QR_SIZE * 0
 firstMsl    = qrCodeLst + QR_SIZE * 1
 grp1Lst     = qrCodeLst + NUM_FIRST + QR_SIZE * 1
@@ -150,62 +169,124 @@ qrGenerator ds QR_DEGREE
     sta     random                                  ; 3 = 14/19
   ENDM
 
-; Platform specific macros
+; Atari 2600 specific macros
  IF QR_OVERLAP = 0
+  IF QR_DIRECT_DRAW
 ;-----------------------------------------------------------
   MAC _BLACK_FUNC
 ;-----------------------------------------------------------
 ; blacks all function/alignment and timing pattern
-    ldx     #CODE_LST_SIZE-1
+    ldx     #CODE_LST_SIZE
 .loopBlack
-    lda     BlackGfx,x
-    sta     qrCodeLst,x
+    lda     BlackGfx-1,x
+    sta     qrCodeLst-1,x
     dex
-    bpl     .loopBlack
+    bne     .loopBlack
+; X = 0!
   ENDM
+  ENDIF
 
- ELSE
+ ELSE ; QR_OVERLAP
 
 ;-----------------------------------------------------------
   MAC _BLACK_LEFT
 ;-----------------------------------------------------------
-; blacks all function/alignment and timing pattern of the left column
+; Blacks all function/alignment and timing pattern areas of the left sprite column
+   IF QR_DIRECT_DRAW
     ldx     #NUM_FIRST + QR_SIZE-1-8
 .loopBlackLeft
     lda     LeftBlack+8,x
     sta     qrCodeLst+8,x
     dex
     bpl     .loopBlackLeft
+   ELSE
+; clear the bitmap column first...
+    ldx     #NUM_FIRST + QR_SIZE-1-8
+    lda     #0
+.loopBlackLeft
+    sta     qrCodeLst+8,x
+    dex
+    bpl     .loopBlackLeft
+; ...then draw the pattern
+   IF QR_DIRECT_DRAW
+    ldy     #1              ; left top pattern/vertical timing line
+   ELSE
+    ldy     #2
+   ENDIF
+.loopPattern
+    lda     #$ff            ; fill pattern
+    jsr     DrawPattern
+    bpl     .loopPattern
+   ENDIF
   ENDM
 
 ;-----------------------------------------------------------
   MAC _BLACK_MIDDLE
 ;-----------------------------------------------------------
-; blacks all function/alignment and timing pattern of the middle column
+; Blacks all function/alignment and timing pattern areas of the middle sprite column
+   IF QR_DIRECT_DRAW
     ldx     #QR_SIZE-1
 .loopBlackMiddle
     lda     GRP1Black,x
     sta     grp1Lst,x
     dex
     bpl     .loopBlackMiddle
+   ELSE
+; clear the bitmap column first...
+    ldx     #QR_SIZE-1
+    lda     #0
+.loopBlackMiddle
+    sta     grp1Lst,x
+    dex
+    bpl     .loopBlackMiddle
+; ...then draw the pattern
+    ldy     #6              ; align pattern
+.loopPattern
+    lda     #$ff            ; fill pattern
+    jsr     DrawPattern
+    cpy     #5
+    bcs     .loopPattern
+   ENDIF
   ENDM
 
 ;-----------------------------------------------------------
   MAC _BLACK_RIGHT
 ;-----------------------------------------------------------
-; blacks all function/alignment and timing pattern of the right column
+; Blacks all function/alignment and timing pattern areas of the right sprite column
+   IF QR_DIRECT_DRAW
     ldx     #QR_SIZE
 .loopBlackRight
     lda     GRP0RBlack-1,x
     sta     grp0RLst-1,x
     dex
     bne     .loopBlackRight
+   ELSE
+; clear the bitmap column first...
+    ldx     #QR_SIZE-1
+    lda     #$00
+.loopBlackRight
+    sta     grp0RLst,x
+    dex
+    bpl     .loopBlackRight
+; ...then draw the pattern
+    ldy     #4              ; right pattern
+.loopPattern
+    lda     #$ff            ; fill pattern
+    jsr     DrawPattern
+    cpy     #3
+    bcs     .loopPattern
+    ldx     #0
+   ENDIF
+; X = 0!
   ENDM
+
  ENDIF ; /QR_OVERLAP
 
+ IF QR_DIRECT_DRAW
 ;-----------------------------------------------------------
   MAC _DRAW_FUNC
 ;-----------------------------------------------------------
+; Draws all function/alignment and timing pattern over existing codewords
     ldx     #CODE_LST_SIZE-1
 .loopBlack
     lda     qrCodeLst,x
@@ -222,6 +303,7 @@ qrGenerator ds QR_DEGREE
     jsr     InvertPixel
    ENDIF
   ENDM
+ ENDIF
 
 
 ;===============================================================================
@@ -436,7 +518,7 @@ MessageCode
     lsr
     and     #$0f
     tay
-;  ldy     #0
+;  ldy     #3
     lda     MessagePtrLo,y
     sta     .msgPtr
     lda     MessagePtrHi,y
@@ -486,7 +568,7 @@ CheckPixel SUBROUTINE
 .notMissile
     cpy     #1+8
     bcs     .notGRP0L
-  IF QR_OVERLAP
+  IF QR_OVERLAP & QR_DIRECT_DRAW
     cpx     #8              ; bottom left eye (partially) shared with data!
     bcc     .alwaysSet
   ENDIF
@@ -560,13 +642,14 @@ _QR_TOTAL SET _QR_TOTAL + . - BitMapCode
 FunctionModulesData
 ; Platform and version specific function module data definition
 
+ IF QR_DIRECT_DRAW
   IF QR_VERSION = 1
     ERR ; TODO
   ENDIF
 
   IF QR_VERSION = 2
    IF QR_SINGLE_MASK
-    include FuncDataV2S.inc ; TODO: special pattern
+    include FuncDataV2S.inc ; special pattern
    ELSE
     include FuncDataV2.inc
    ENDIF
@@ -574,6 +657,19 @@ FunctionModulesData
 
   IF QR_VERSION = 3
     ERR ; TODO
+  ENDIF
+ ENDIF
+
+FirstIdxTbl ; for 25 pixel
+    ds 7, 0
+    .byte   $fe
+    ds 7, 0
+    .byte   $01
+    ds 7, 0
+  IF QR_LEVEL = 0 || QR_LEVEL = 1
+    .byte   $bf     ; 1st format bit is 1
+  ELSE
+    .byte   $3f     ; 1st format bit is 0
   ENDIF
 
     ECHO    "QR Code function modules data:", [. - FunctionModulesData]d, "bytes"
@@ -584,12 +680,11 @@ _QR_TOTAL SET _QR_TOTAL + . - FunctionModulesData
     .byte   " QR Code Generator Demo V0.3 - (C)2021 Thomas Jentzsch "
 
 ; messages MUST NOT be longer than 26 bytes for version 2, level M!
-; Galadriel:
 MessageTbl
 Message0
     .byte   "2002 - Thrust+ Platinum"
 Message1
-    .byte   "2001 - Jammed "
+    .byte   "2001 - Jammed"
 Message2
     .byte   "2005 - SWOOPS!"
 Message3

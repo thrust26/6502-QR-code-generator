@@ -162,16 +162,3 @@ EorGfx
     .byte   %10100010 ; constant
     .byte   %10111110 ; constant
     .byte   %10000000 ; constant
-
-FirstIdxTbl ; for 25 pixel
-    ds 7, 0
-    .byte   $fe
-    ds 7, 0
-    .byte   $01
-    ds 7, 0
-  IF QR_LEVEL = 0 || QR_LEVEL = 1
-    .byte   $bf     ; 1st format bit is 1
-  ELSE
-    .byte   $3f     ; 1st format bit is 0
-  ENDIF
-

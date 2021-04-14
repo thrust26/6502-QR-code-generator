@@ -2,8 +2,20 @@
 ; Q R   C O D E   C O N S T A N T S
 ;===============================================================================
 
+; Do NOT change these constants!
+
+  IFNCONST QR_OVERLAP
+QR_OVERLAP      = 0
+  ENDIF
+  IFNCONST QR_SINGLE_MASK
+QR_SINGLE_MASK  = 0
+  ENDIF
+  IFNCONST QR_DIRECT_DRAW
+QR_DIRECT_DRAW  = 0
+  ENDIF
+
   IF QR_VERSION = 1 ;{
-QR_SIZE     = 21    ; 21x21 QR code
+; 21x21 QR code
    IF QR_LEVEL = 0
 QR_DEGREE      = 7  ; for version 1, level L QR codes
    ENDIF
@@ -19,7 +31,7 @@ QR_DEGREE      = 17 ; for version 1, level H QR codes
   ENDIF ;}
 
   IF QR_VERSION = 2
-QR_SIZE     = 25    ; 25x25 QR code
+; 25x25 QR code
    IF QR_LEVEL = 0
 QR_DEGREE      = 10 ; for version 2, level L QR codes
    ENDIF
@@ -35,7 +47,7 @@ QR_DEGREE      = 28 ; for version 2, level H QR codes
   ENDIF
 
   IF QR_VERSION = 3 ;{
-QR_SIZE     = 29    ; 29x29 QR code
+; 29x29 QR code
    IF QR_LEVEL = 0
 QR_DEGREE      = 15 ; for version 3, level L QR codes
    ENDIF
@@ -48,6 +60,8 @@ QR_DEGREE      = 26 ; for version 3, level M QR codes
     ERR
    ENDIF
   ENDIF ;}
+
+QR_SIZE = 17 + QR_VERSION * 4
 
 ; Calculate capacity based on version
 _QR_VAL SET (QR_VERSION * 16 + 128) * QR_VERSION + 64
@@ -219,24 +233,150 @@ RSMult SUBROUTINE
     bpl     .loopI
   ENDM
 
+ IF QR_DIRECT_DRAW = 0
+;-----------------------------------------------------------
+  MAC _BLACK_FUNC
+;-----------------------------------------------------------
+; Blacks all function/alignment and timing pattern areas
+
+; assume bitmap is clear, only draw the pattern
+    ldy     #4+2            ; pattern + timing lines
+.loopPattern
+    lda     #$ff            ; fill pattern
+    jsr     DrawPattern
+    bpl     .loopPattern
+  ENDM
+
+;-----------------------------------------------------------
+BlackFunc SUBROUTINE
+;-----------------------------------------------------------
+    _BLACK_FUNC
+    rts
+
+;-----------------------------------------------------------
+  MAC _DRAW_FUNC
+;-----------------------------------------------------------
+; Draws all function/alignment and timing pattern over existing codewords
+
+; blacken functions pattern first
+    jsr     BlackFunc
+
+; draw function pattern
+    ldy     #4
+.loopPattern
+    lda     #$00            ; draw pattern
+    jsr     DrawPattern
+    bne     .loopPattern
+
+; draw horizontal timing pattern
+    ldy     #QR_SIZE-1 - 9
+    ldx     #QR_SIZE-1 - 6
+.loopTimingH
+    jsr     InvertPixel
+    dey
+    dey
+    cpy     #9
+    bcs     .loopTimingH
+
+; draw vertical timing pattern
+    ldy     #6
+    ldx     #QR_SIZE-1 - 9
+.loopTimingV
+    jsr     InvertPixel
+    dex
+    dex
+    cpx     #9
+    bcs     .loopTimingV
+  ENDM ;
+
+;---------------------------------------------------------------
+DrawPattern SUBROUTINE
+;---------------------------------------------------------------
+; Y = index, A = fill
+.index      = tmpVars
+.width      = tmpVars+1
+.height     = tmpVars+2
+.offset     = tmpVars+3
+.tmpPat     = tmpVars+4
+.fill       = tmpVars+5
+
+    sty     .index
+    sta     .fill
+    ldx     PatternY,y
+    lda     PatternHeight,y
+    sta     .height
+    lda     PatternOffset,y
+    tay
+.loopRow
+    sty     .offset
+    lda     PatternStart,y
+    ora     .fill
+    sta     .tmpPat
+    ldy     .index
+    lda     PatternWidth,y
+    sta     .width
+    lda     PatternX,y
+    tay
+; draw one row
+.loopBit
+    sec                     ; allows for >8 black pixel
+    ror     .tmpPat
+    bcc     .clear
+;.set
+    jsr     CheckPixel
+    bne     .skipInvert
+.invert
+    jsr     InvertPixel
+.skipInvert
+    iny
+    dec     .width
+    bne     .loopBit
+    dex
+    ldy     .offset
+    iny
+    dec     .height
+    bne     .loopRow
+.exit
+    ldy     .index
+    dey
+    rts
+
+.clear
+    jsr     CheckPixel
+    bne     .invert
+    beq     .skipInvert
+ ENDIF ; /QR_DIRECT_DRAW = 0
+
 ;-----------------------------------------------------------
 ; Draws the raw codewords (including data and ECC) onto the given QR Code. This requires the initial state of
 ; the QR Code to be black at function modules and white at codeword modules (including unused remainder bits).
   MAC _DRAW_CODEWORDS
 ;-----------------------------------------------------------
 ; Note: This part has the maximum RAM usage
-.right1  = tmpVars+0
-.vert   = tmpVars+1
-.j      = tmpVars+2
-.y      = tmpVars+3
-.iBit   = tmpVars+4
-.iByte  = tmpVars+5
+.vert   = tmpVars+0
+.j      = tmpVars+1
+.y      = tmpVars+2
+  IF QR_DIRECT_DRAW
+.iBit   = tmpVars+3
+.iByte  = tmpVars+4
+.right1 = tmpVars+5
+  ELSE
+; must not overlap with DrawPattern space
+.iBit   = tmpVars+6
+.iByte  = tmpVars+7
+.right1 = tmpVars+8
+  ENDIF
 
 ; blacken the (right) function modules in the bitmap
   IF QR_OVERLAP
     _BLACK_RIGHT        ; returns with X = 0
   ELSE
+   IF QR_DIRECT_DRAW
     _BLACK_FUNC         ; returns with X = 0
+   ELSE
+    jsr     BlackFunc
+    ldx     #0
+   ENDIF
   ENDIF
 ; int i = 0;  // Bit index into the data
 ;    ldx     #0
@@ -262,6 +402,9 @@ RSMult SUBROUTINE
     bne     .skipBlackMiddle
 ; blacken the middle function modules in the bitmap
     _BLACK_MIDDLE
+  IF QR_DIRECT_DRAW = 0
+    ldy     .right1     ; DrawPattern overwrites Y
+  ENDIF
 .skipBlackMiddle
     cpy     #8+1
     bne     .skipBlackLeft
@@ -332,7 +475,8 @@ RSMult SUBROUTINE
     ldy     .right1
     dey
     dey
-    bpl     .loopRight      ; unconditional!
+;    bpl     .loopRight      ; unconditional!
+    jmp     .loopRight      ; unconditional!
 ; } // for right
 .exitDraw
   ENDM
@@ -496,7 +640,7 @@ RSMult SUBROUTINE
 ;-----------------------------------------------------------
   MAC _DRAW_FORMAT
 ;-----------------------------------------------------------
-   IF QR_SINGLE_MASK = 0
+   IF QR_SINGLE_MASK = 0 || QR_DIRECT_DRAW = 0
 .idx    = tmpVars
 
     ldy     #QR_FORMATS-1
@@ -510,7 +654,11 @@ RSMult SUBROUTINE
     lda     FormatHi,x
     and     BitMask-8,y
 .lowFormat
+   IF QR_DIRECT_DRAW
     beq     .skipFormat
+   ELSE
+    bne     .skipFormat
+   ENDIF
     ldx     FormatY1,y
     lda     FormatX1,y
     tay
@@ -643,8 +791,77 @@ _QR_TOTAL SET _QR_TOTAL + . - QRCodeCode
 ; Add this to your code's data area
 QRCodeData
 
+   IF QR_DIRECT_DRAW = 0
+; Function pattern parameters
+PatternX ; left
+    .byte   6                       ; left, vertical timing line
+    .byte   0, 0, QR_SIZE-8         ; eye pattern
+    .byte   QR_SIZE-8, QR_SIZE-9    ; alignment pattern (right/middle part)
+    .byte   9                       ; top, horizontal timing line
+PatternY ; top
+    .byte   QR_SIZE - 10            ; left, vertical timing line
+    .byte   QR_SIZE-1, 7, QR_SIZE-1 ; eye pattern
+    .byte   8, 8                    ; alignment pattern (right/middle part)
+    .byte   QR_SIZE - 7             ; top, horizontal timing line
+PatternOffset = . - 1
+    .byte   EyeLeftTop-PatternStart     ; 1
+    .byte   EyeLeftBottom-PatternStart  ; 2
+    .byte   EyeRightTop-PatternStart    ; 3
+    .byte   AlignRightBottom-PatternStart
+    .byte   AlignRightBottom-PatternStart
+; timing lines need no pattern, always drawn filled here
+PatternWidth
+    .byte   1                       ; left, vertical timing line
+    .byte   9, 9, 8                 ; eye pattern
+    .byte   4, 1                    ; alignment pattern (right/middle part)
+    .byte   QR_SIZE - 9 - 8         ; top, horizontal timing line
+PatternHeight
+    .byte   QR_SIZE - 9 - 8         ; left, vertical timing line
+    .byte   9, 8, 9                 ; eye pattern
+    .byte   5, 5                    ; alignment pattern (right/middle part)
+    .byte   1                       ; top, horizontal timing line
+
+PatternStart
+EyeRightTop
+    .byte   %11111110
+    .byte   %10000010
+    .byte   %10111010
+    .byte   %10111010
+    .byte   %10111010
+    .byte   %10000010
+    .byte   %11111110
+    .byte   %00000000
+    .byte   %11111111
+AlignRightBottom = . - 1
+;    .byte   %1111
+    .byte   %1000
+    .byte   %1010
+    .byte   %1000
+    .byte   %1111
+
+EyeLeftBottom
+    .byte   %00000000
+;    .byte   %01111111
+;    .byte   %01000001
+;    .byte   %01011101
+;    .byte   %01011101
+;    .byte   %01011101
+;    .byte   %01000001
+;    .byte   %01111111
+EyeLeftTop
+    .byte   %01111111
+    .byte   %01000001
+    .byte   %01011101
+    .byte   %01011101
+    .byte   %01011101
+    .byte   %01000001
+    .byte   %01111111
+    .byte   %00000000
+    .byte   %11111111
+   ENDIF ; /QR_DIRECT_DRAW
+
 ; Format Information Strings
-  IF QR_SINGLE_MASK = 0
+  IF QR_SINGLE_MASK = 0 || QR_DIRECT_DRAW = 0
    IF QR_LEVEL = 0 ; L
 FormatLo
     .byte   %11101111
@@ -725,7 +942,6 @@ FormatHi
     .byte   %00011000
     .byte   %01110110
    ENDIF
-  ENDIF ; /QR_SINGLE_MASK = 0
 
 ; positions of the 15 type information bits
 FormatX1
@@ -742,7 +958,7 @@ FormatX2
     ds      7, 8
     .byte   QR_SIZE-8, QR_SIZE-7, QR_SIZE-6, QR_SIZE-5
     .byte   QR_SIZE-4, QR_SIZE-3, QR_SIZE-2, QR_SIZE-1
-  ENDIF ; QR_SINGLE_MASK = 0
+  ENDIF ; /QR_SINGLE_MASK = 0 || QR_DIRECT_DRAW = 0
 
 BitMask
     .byte   $80, $40, $20, $10, $8, $4, $2, $1
