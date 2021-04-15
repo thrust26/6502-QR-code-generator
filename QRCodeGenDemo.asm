@@ -88,19 +88,16 @@ random      .byte
 ; QR code variables
 ; all byte counts based on version 2, level M QR code
   IF QR_DIRECT_DRAW
-tmpVars     ds 6
+qrTmpVars   ds 6
   ELSE
-tmpVars     ds 9
+qrTmpVars   ds 9
   ENDIF
 
-msgIdx      = tmpVars + 3
   IF QR_SINGLE_MASK = 0
 qrPattern   .byte
   ENDIF
 ;---------------------------------------
-data        ds QR_TOTAL        ; 44 bytes
-remainder   = data              ; (QR_DEGREE = 16 bytes)
-msgData     = data + QR_DEGREE  ; (QR_MAX_DATA = 28 bytes)
+qrData      ds QR_TOTAL             ; 44 bytes
 ;- - - - - - - - - - - - - - - - - - - -
 ; The QR code overlaps the data! It overwrites the data while being drawn.
   IF QR_OVERLAP
@@ -109,7 +106,7 @@ QR_NON_OVER = 6
    ELSE
 QR_NON_OVER = 8
    ENDIF
-qrCodeLst   = data + QR_NON_OVER    ; all but 6/8 bytes overlap (version 2 only!)
+qrCodeLst   = qrData + QR_NON_OVER  ; all but 6/8 bytes overlap (version 2 only!)
             ds NUM_FIRST + QR_SIZE*3 - QR_TOTAL + QR_NON_OVER   ; 38/40 bytes
   ELSE
 qrCodeLst   ds NUM_FIRST + QR_SIZE*3                            ; 76 bytes
@@ -120,7 +117,7 @@ grp1Lst     = qrCodeLst + NUM_FIRST + QR_SIZE * 1
 grp0RLst    = qrCodeLst + NUM_FIRST + QR_SIZE * 2
 CODE_LST_SIZE = . - qrCodeLst
   IF QR_GENERATE
-qrGenerator ds QR_DEGREE
+qrGenerator = . - QR_DEGREE
   ENDIF
 ;---------------------------------------
 ; QR code total = 89/127 bytes
@@ -333,7 +330,7 @@ DrawScreen SUBROUTINE
     sta     VBLANK
     stx     TIM64T
 ;---------------------------------------------------------------
-.tmpFirst    = tmpVars
+.tmpFirst    = qrTmpVars
 
   IF QR_SPRITE_GFX
 BLOCK_H     = 2
@@ -600,8 +597,8 @@ GenerateQR SUBROUTINE
 
 MessageCode
 ; convert the message into a data stream
-.msgLen     = tmpVars
-.msgPtr     = tmpVars+1
+.msgLen     = qrTmpVars
+.msgPtr     = qrTmpVars+1
     lda     random
     lsr
     lsr
@@ -639,7 +636,7 @@ _QR_TOTAL SET _QR_TOTAL + . - MessageCode
 ; |PF0 |  PF1   |  PF2   |PF0 |  PF1   |  PF2   |
 ; |    |7......0|0......7|4..7|7......0|        |
 ; |....|...XXXXX|XXXXXXXX|XXXX|XXXXXXXX|........|
-.tmpLeft    = tmpVars
+.tmpLeft    = qrTmpVars
 
     ldx     #QR_SIZE-1
 .loopRows
@@ -857,7 +854,7 @@ Message14
 Message15
     .byte   "1996 - Stella Emulator"
 MessageEnd
-;    .byte   "..the single hardest thing"
+;    .byte   "the single hardest thing.."
 
 MessagePtrLo
     .byte   <Message0, <Message1, <Message2, <Message3

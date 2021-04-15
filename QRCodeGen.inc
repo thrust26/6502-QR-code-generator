@@ -1,8 +1,26 @@
 ;===============================================================================
-; Q R   C O D E   C O N S T A N T S
+; U S E R - D E F I N E D   Q R   C O D E   C O N S T A N T S
 ;===============================================================================
 
-; Do NOT change these constants!
+  IFNCONST QR_VERSION
+QR_VERSION      = 2     ; 1..3, QR code size (21, 25, 29)
+  ENDIF
+  IFNCONST QR_LEVEL
+QR_LEVEL        = 0     ; 0..4, error correction levels L, M, Q, H
+  ENDIF
+  IFNCONST QR_PADDING
+QR_PADDING      = 1     ; 0|1, add padding bytes add the end of test message text
+  ENDIF
+  IFNCONST QR_GENERATE
+QR_GENERATE     = 0     ; 0|1, generate Reed-Solomon ECC generator polynomial on-the-fly
+  ENDIF
+
+
+;===============================================================================
+; C A L C U L A T E D   Q R   C O D E   C O N S T A N T S
+;===============================================================================
+
+; Do NOT change the following constants!
 
   IFNCONST QR_OVERLAP
 QR_OVERLAP      = 0
@@ -14,8 +32,7 @@ QR_SINGLE_MASK  = 0
 QR_DIRECT_DRAW  = 0
   ENDIF
 
-  IF QR_VERSION = 1 ;{
-; 21x21 QR code
+  IF QR_VERSION = 1 ; 21x21 QR code
    IF QR_LEVEL = 0
 QR_DEGREE      = 7  ; for version 1, level L QR codes
    ENDIF
@@ -28,10 +45,9 @@ QR_DEGREE      = 13 ; for version 1, level Q QR codes
    IF QR_LEVEL = 3
 QR_DEGREE      = 17 ; for version 1, level H QR codes
    ENDIF
-  ENDIF ;}
+  ENDIF
 
-  IF QR_VERSION = 2
-; 25x25 QR code
+  IF QR_VERSION = 2 ; 25x25 QR code
    IF QR_LEVEL = 0
 QR_DEGREE      = 10 ; for version 2, level L QR codes
    ENDIF
@@ -46,8 +62,7 @@ QR_DEGREE      = 28 ; for version 2, level H QR codes
    ENDIF
   ENDIF
 
-  IF QR_VERSION = 3 ;{
-; 29x29 QR code
+  IF QR_VERSION = 3 ; 29x29 QR code
    IF QR_LEVEL = 0
 QR_DEGREE      = 15 ; for version 3, level L QR codes
    ENDIF
@@ -59,7 +74,7 @@ QR_DEGREE      = 26 ; for version 3, level M QR codes
     ECHO    "ERROR: Version 3, Level", [QR_LEVEL]d, "not supported"
     ERR
    ENDIF
-  ENDIF ;}
+  ENDIF
 
 QR_SIZE = 17 + QR_VERSION * 4
 
@@ -82,7 +97,16 @@ QR_POLY     = $11d  ; GF(2^8) is based on 9 bit polynomial
 QR_FORMATS  = 15    ; 15 type information bits
 
 QR_MAX_MSG  = QR_MAX_DATA - 2
-QR_TOTAL    = QR_MAX_DATA + QR_DEGREE ; 44
+QR_TOTAL    = QR_MAX_DATA + QR_DEGREE ; e.g. 44
+
+
+;===============================================================================
+; V A R I A B L E S
+;===============================================================================
+
+qrRemainder = qrData                ; (QR_DEGREE = e.g. 16 bytes)
+qrMsgData   = qrData + QR_DEGREE    ; (QR_MAX_DATA = e.g. 28 bytes)
+qrMsgIdx    = qrTmpVars + 3
 
 
 ;===============================================================================
@@ -100,8 +124,8 @@ QR_TOTAL    = QR_MAX_DATA + QR_DEGREE ; 44
 ; Russian peasant multiplication (x * y)
 ; Input: A = x, Y = y
 ; Result: A
-.x      = tmpVars
-.y      = tmpVars+1
+.x      = qrTmpVars
+.y      = qrTmpVars+1
 
     sta     .x
     sty     .y
@@ -134,8 +158,8 @@ QR_TOTAL    = QR_MAX_DATA + QR_DEGREE ; 44
 ; E.g. g(x)=(x+1)(x+?)(x+?^2)(x+?^3)...(x+?^15)
 ;          = x^16+3Bx^15+0Dx^14+68x^13+BDx^12+44x^11+d1x^10+1e^x9+08x^8
 ;            +A3x^7+41x^6+29x^5+E5x^4+62x^3+32x^2+24x+3B
-.root   = tmpVars+2
-.i      = tmpVars+3
+.root   = qrTmpVars+2
+.i      = qrTmpVars+3
 
 ; memset(qrGenerator, 1, 16);
     ldx     #QR_DEGREE-1
@@ -188,32 +212,32 @@ RSMult SUBROUTINE
 ;-----------------------------------------------------------
   MAC _RS_REMAINDER
 ;-----------------------------------------------------------
-.i      = tmpVars+2
-.factor = tmpVars+3
+.i      = qrTmpVars+2
+.factor = qrTmpVars+3
 
 ; memset(result, 0, 16); // done in START_TEXT
 ; for (int i = dataLen-1; i >= 0; i--) {  // Polynomial division
     ldx     #QR_MAX_DATA-1
 .loopI
     stx     .i
-;   uint8_t factor = data[i] ^ result[degree - 1];
-    lda     msgData,x
-    eor     remainder + QR_DEGREE - 1
+;   uint8_t factor = qrMsgData[i] ^ qrRemainder[degree - 1];
+    lda     qrMsgData,x
+    eor     qrRemainder + QR_DEGREE - 1
     sta     .factor
-;   memmove(&result[1], &result[0], (size_t)(16 - 1) * sizeof(result[0]));
+;   memmove(&qrRemainder[1], &qrRemainder[0], (size_t)(16 - 1) * sizeof(qrRemainder[0]));
     ldx     #QR_DEGREE-1
 .loopMove
-    lda     remainder-1,x
-    sta     remainder,x
+    lda     qrRemainder-1,x
+    sta     qrRemainder,x
     dex
     bne     .loopMove
-;   result[0] = 0;
+;   qrRemainder[0] = 0;
     lda     #0
-    sta     remainder
+    sta     qrRemainder
 ;   for (int j = 16-1; j >= 0; j--)
     ldx     #QR_DEGREE-1
 .loopJ
-;     result[j] ^= reedSolomonMultiply(generator[j], factor);
+;     qrRemainder[j] ^= reedSolomonMultiply(generator[j], factor);
     ldy     .factor
   IF QR_GENERATE
     lda     qrGenerator,x
@@ -222,8 +246,8 @@ RSMult SUBROUTINE
     lda     Generator,x
     _RS_MULT
   ENDIF
-    eor     remainder,x
-    sta     remainder,x
+    eor     qrRemainder,x
+    sta     qrRemainder,x
 ;   }
     dex
     bpl     .loopJ
@@ -293,12 +317,12 @@ BlackFunc SUBROUTINE
 DrawPattern SUBROUTINE
 ;---------------------------------------------------------------
 ; Y = index, A = fill
-.index      = tmpVars
-.width      = tmpVars+1
-.height     = tmpVars+2
-.offset     = tmpVars+3
-.tmpPat     = tmpVars+4
-.fill       = tmpVars+5
+.index      = qrTmpVars
+.width      = qrTmpVars+1
+.height     = qrTmpVars+2
+.offset     = qrTmpVars+3
+.tmpPat     = qrTmpVars+4
+.fill       = qrTmpVars+5
 
     sty     .index
     sta     .fill
@@ -328,10 +352,10 @@ DrawPattern SUBROUTINE
 .invert
     jsr     InvertPixel
 .skipInvert
-    iny
+    iny                     ; x++
     dec     .width
     bne     .loopBit
-    dex
+    dex                     ; y--
     ldy     .offset
     iny
     dec     .height
@@ -353,18 +377,18 @@ DrawPattern SUBROUTINE
   MAC _DRAW_CODEWORDS
 ;-----------------------------------------------------------
 ; Note: This part has the maximum RAM usage
-.vert   = tmpVars+0
-.j      = tmpVars+1
-.y      = tmpVars+2
+.vert   = qrTmpVars+0
+.j      = qrTmpVars+1
+.y      = qrTmpVars+2
   IF QR_DIRECT_DRAW
-.iBit   = tmpVars+3
-.iByte  = tmpVars+4
-.right1 = tmpVars+5
+.iBit   = qrTmpVars+3
+.iByte  = qrTmpVars+4
+.right1 = qrTmpVars+5
   ELSE
 ; must not overlap with DrawPattern space
-.iBit   = tmpVars+6
-.iByte  = tmpVars+7
-.right1 = tmpVars+8
+.iBit   = qrTmpVars+6
+.iByte  = qrTmpVars+7
+.right1 = qrTmpVars+8
   ENDIF
 
 ; blacken the (right) function modules in the bitmap
@@ -441,9 +465,9 @@ DrawPattern SUBROUTINE
     ldx     .y
     jsr     CheckPixel
     bne     .skipPixel
-;         bool black = getBit(data[i >> 3], 7 - (i & 7));
+;         bool black = getBit(qrData[i >> 3], 7 - (i & 7));
     ldx     .iByte
-    lda     data,x
+    lda     qrData,x
     ldx     .iBit
     and     BitMask,x
     beq     .skipInv
@@ -485,7 +509,7 @@ DrawPattern SUBROUTINE
   MAC _APPLY_MASK
 ;-----------------------------------------------------------
    IF QR_SINGLE_MASK
-.y          = tmpVars
+.y          = qrTmpVars
     ldx     #QR_SIZE - 1
 .loopY
     stx     .y
@@ -503,12 +527,12 @@ DrawPattern SUBROUTINE
     dex
     bpl     .loopY
    ELSE
-.y          = tmpVars
-;.x      = tmpVars+2
-.xMod3      = tmpVars+1
-.yMod3      = tmpVars+2
-.xDiv3      = tmpVars+3
-.tmp        = tmpVars+4
+.y          = qrTmpVars
+;.x      = qrTmpVars+2
+.xMod3      = qrTmpVars+1
+.yMod3      = qrTmpVars+2
+.xDiv3      = qrTmpVars+3
+.tmp        = qrTmpVars+4
 
     lda     #0
     sta     .yMod3
@@ -641,7 +665,7 @@ DrawPattern SUBROUTINE
   MAC _DRAW_FORMAT
 ;-----------------------------------------------------------
    IF QR_SINGLE_MASK = 0 || QR_DIRECT_DRAW = 0
-.idx    = tmpVars
+.idx    = qrTmpVars
 
     ldy     #QR_FORMATS-1
 .loopFormat
@@ -689,21 +713,21 @@ DrawPattern SUBROUTINE
     lsr
     ora     #(QR_MODE << 4)
 ; (QR_MODE << 4) | (MSG_LEN >> 4)
-    sta     msgData + QR_MAX_DATA - 1
+    sta     qrMsgData + QR_MAX_DATA - 1
     txa
     asl
     asl
     asl
     asl
 ; (MSG_LEN << 4)
-    sta     msgData + QR_MAX_DATA - 2
+    sta     qrMsgData + QR_MAX_DATA - 2
     lda     #QR_MAX_DATA - 3
-    sta     msgIdx
+    sta     qrMsgIdx
 ; clear the remaining data buffer
     ldx     #QR_TOTAL-3
     lda     #0
 .loopClear
-    sta     data,x
+    sta     qrData,x
     dex
     bpl     .loopClear
   ENDM
@@ -712,28 +736,28 @@ DrawPattern SUBROUTINE
   MAC ADD_MSG_BYTE
 ;---------------------------------------------------------------
 ; A = byte to add
-    ldx     msgIdx
+    ldx     qrMsgIdx
     pha
     lsr
     lsr
     lsr
     lsr
-    ora     msgData + 1,x
-    sta     msgData + 1,x
+    ora     qrMsgData + 1,x
+    sta     qrMsgData + 1,x
     pla
     asl
     asl
     asl
     asl
-    sta     msgData,x
-    dec     msgIdx
+    sta     qrMsgData,x
+    dec     qrMsgIdx
   ENDM
 
 ;-----------------------------------------------------------
   MAC STOP_MSG
 ;-----------------------------------------------------------
    IF QR_PADDING
-.msgLen     = tmpVars
+.msgLen     = qrTmpVars
 ; pad with optional filler bytes (QR code works without too)
     lda     #QR_MAX_MSG - 1
     sec
@@ -742,11 +766,11 @@ DrawPattern SUBROUTINE
     tax
 .loopPadding
     lda     #$ec            ; defined by QR standard
-    sta     msgData,x
+    sta     qrMsgData,x
     dex
     bmi     .noPadding
     lda     #$11            ; defined by QR standard
-    sta     msgData,x
+    sta     qrMsgData,x
     dex
     bpl     .loopPadding
 .noPadding
