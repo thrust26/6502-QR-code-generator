@@ -26,7 +26,7 @@ Instructions:
 
 6. Add message text using the START_MSG, n x ADD_MSG_BYTE, STOP_MSG
 
-7. Set qrPattern to 0..15 (chosing a mask pattern)
+7. Set qrPattern to 0..7 (chosing a mask pattern)
 
 8. Call the GEN_QR_CODE macro
 
