@@ -1,4 +1,4 @@
-; QR Code generator demo V0.3
+; QR Code generator demo V0.4
 ; (C) 2021 Thomas Jentzsch
 
 ; TODOs
@@ -398,7 +398,7 @@ BLOCK_H     = 2
     sty     GRP0
 
   ELSE ; QR_SPRITE_GFX
-BLCOK_H     = 7
+BLOCK_H     = 7
 
 ; |PF0 |  PF1   |  PF2   |  PF2   |  PF1   |PF0 |
 ; |....|...xxxxx|xxxxxxxx|xxxxxxxx|xxxx....|....|
@@ -820,7 +820,7 @@ _QR_TOTAL SET _QR_TOTAL + . - FunctionModulesData
 
     QR_CODE_DATA
 
-    .byte   " QR Code Generator Demo V0.3 - (C)2021 Thomas Jentzsch "
+    .byte   " QR Code Generator Demo V0.4 - (C)2021 Thomas Jentzsch "
 
 ; messages MUST NOT be longer than 26 bytes for version 2, level M!
 MessageTbl
