@@ -42,13 +42,14 @@ QR_VERSION      = 2     ; 1, 2 or 3 (TODO 1 and 3)
 QR_LEVEL        = 1     ; 0 (L), 1 (M), 2 (Q) and 3 (H))
 QR_PADDING      = 1     ; (+ 22 bytes) add padding bytes (optional)
 QR_GENERATE     = 0     ; (+~12 bytes) generates Reed-Solomon ECC generator polynomial on-the-fly
-                        ; else uses built-in table
+                        ;   else uses built-in table
 
 ; Atari 2600 specific QR settings (keep set to 0 for other platforms!)
   IFCONST ATARI_2600
 QR_OVERLAP      = 1     ; overlaps input and output data to save RAM (defined for version 2 only!)
 QR_SINGLE_MASK  = 0     ; (-255 bytes) if 1 uses only 1 of the 8 mask pattern
 QR_DIRECT_DRAW  = 0     ; (+ 45 bytes) draw byte columns instead of individual pixel
+QR_SPRITE_GFX   = 0     ; display playfield or sprite graphics
   ENDIF
 
   IF QR_VERSION != 2
@@ -154,6 +155,15 @@ qrGenerator ds QR_DEGREE
       REPEAT ({1})/2
         nop
       REPEND
+    ENDIF
+  ENDM
+
+  MAC CHECKPAGE
+    IF >. != >{1}
+      ECHO ""
+      ECHO "ERROR: different pages! (", {1}, ",", ., ")"
+      ECHO ""
+      ERR
     ENDIF
   ENDM
 
@@ -315,7 +325,7 @@ qrGenerator ds QR_DEGREE
 ;---------------------------------------------------------------
 DrawScreen SUBROUTINE
 ;---------------------------------------------------------------
-    ldx     #227
+    ldx     #227+8
 .waitTim:
     lda     INTIM
     bne     .waitTim
@@ -323,11 +333,16 @@ DrawScreen SUBROUTINE
     sta     VBLANK
     stx     TIM64T
 ;---------------------------------------------------------------
+.tmpFirst    = tmpVars
+
+  IF QR_SPRITE_GFX
+BLOCK_H     = 2
+
     ldx     #3
     bit     SWCHB
     bvs     .skipCentering
 ; some vertical centering
-    ldx     #(192-QR_SIZE*2)/2
+    ldx     #(192-QR_SIZE*BLOCK_H)/2
 .skipCentering
 .waitTop
     sta     WSYNC
@@ -337,8 +352,6 @@ DrawScreen SUBROUTINE
     ldx     #QR_SIZE-1
     lda     #%1             ;           1st top left fixed pixel
     bne     .enterLoop
-
-.tmpFirst    = tmpVars
 
 ; the QR code kernel
 .loopKernel                 ;           @53
@@ -355,7 +368,7 @@ DrawScreen SUBROUTINE
 .enterLoop
     sta     .tmpFirst       ; 3 =  8
 .endFirst                   ;           @70/69
-    ldy     #-2             ; 2
+    ldy     #-BLOCK_H       ; 2
 .loopBlock
     sta     WSYNC           ; 3         @75/74
 ;---------------------------------------
@@ -384,6 +397,83 @@ DrawScreen SUBROUTINE
     sty     GRP1
     sty     GRP0
 
+  ELSE ; QR_SPRITE_GFX
+BLCOK_H     = 7
+
+; |PF0 |  PF1   |  PF2   |  PF2   |  PF1   |PF0 |
+; |....|...xxxxx|xxxxxxxx|xxxxxxxx|xxxx....|....|
+.pf0R1LLst  = grp0LLst
+.pf2LLst    = grp1Lst
+.pf1RLst    = grp0RLst
+
+; some vertical centering
+    ldx     #(200-QR_SIZE*BLOCK_H)/2
+.skipCentering
+.waitTop
+    sta     WSYNC
+    dex
+    bne     .waitTop
+
+    ldx     #QR_SIZE-1
+    lda     #%1             ;           1st top left fixed pixel
+    bne     .enterLoop
+
+.loopBlock
+    SLEEP   2
+    lda     #0              ; 2
+    sta     PF2             ; 3         @43/44
+    sta     PF0             ; 3 =  8    @46/47
+    beq     .contBlock      ; 3
+
+; the QR code kernel
+.loopKernel                 ;           @47/48
+    lda     FirstIdxTbl,x   ; 4
+    sty     PF0             ; 3
+    sty     PF2             ; 3
+    cmp     #1              ; 2
+    bcs     .newFirst       ; 2/3
+    lsr     .tmpFirst       ; 5
+    bpl     .endFirst       ; 3 = 22    unconditional
+
+.newFirst                   ;           @62/63
+; $bf/$3f | $01 | $fe
+    bne     .enterLoop      ; 2/3
+    lda     firstMsl        ; 3
+.enterLoop
+    sta     .tmpFirst       ; 3 =  8
+.endFirst                   ;           @69..71
+    ldy     #BLOCK_H        ; 2
+.contBlock
+    sta     WSYNC           ; 3
+;---------------------------------------
+; |PF0 |  PF1   |  PF2   |PF0 |  PF1   |  PF2   |
+; |    |7......0|0......7|4..7|7......0|        |
+; |....|...XXXXX|XXXXXXXX|XXXX|XXXXXXXX|........|
+    lda     .tmpFirst       ; 3
+    lsr                     ; 2
+    lda     .pf0R1LLst,x    ; 4
+    and     #%1111          ; 2
+    bcc     .clear          ; 2/3
+    ora     #%10000         ; 2
+.clear                      ;   = 14/15
+    sta     PF1             ; 3         @17/18
+    lda     .pf2LLst,x      ; 4
+    sta     PF2             ; 3 = 10    @24/25
+    lda     .pf0R1LLst,x    ; 4
+    sta     PF0             ; 3         @31/32  >=27
+    lda     .pf1RLst,x      ; 4
+    sta     PF1             ; 3 = 14    @38/39  >=38
+    dey                     ; 2
+    bne     .loopBlock      ; 3/2
+    dex                     ; 2
+    bpl     .loopKernel     ; 3/2=9/8   @47/48
+    SLEEP   2               ; 2
+    sty     PF2             ; 3         @51/52
+    sty     PF0             ; 3         @54/55
+    sta     WSYNC           ; 3
+;---------------------------------------
+    sty     PF1
+  ENDIF ; /QR_SPRITE_GFX
     ldx     #2
 .waitScreen:
     lda     INTIM
@@ -427,11 +517,11 @@ InitDemo SUBROUTINE
 ;---------------------------------------
     lda     #$0e
     sta     COLUBK
-    lda     #$00
+  IF QR_SPRITE_GFX
+    lda     #%001
     sta     COLUP0
     sta     COLUP1
 
-    lda     #%001
     sta     NUSIZ0
     sta     VDELP1
 
@@ -442,7 +532,7 @@ InitDemo SUBROUTINE
     lda     #$a0
     sta     HMM1
 
-    SLEEP   3
+    SLEEP   5
 
     sta     RESM1
     sta     RESP0
@@ -451,7 +541,7 @@ InitDemo SUBROUTINE
     sta     WSYNC
 ;---------------------------------------
     sta     HMOVE
-
+  ENDIF
     jmp     GenerateQR
 ; GameInit
 
@@ -466,9 +556,9 @@ VerticalBlank SUBROUTINE
     bne     .loopVSync
 
   IF NTSC
-    lda     #44
+    lda     #44-4
   ELSE
-    lda     #77
+    lda     #77-4
   ENDIF
     sta     TIM64T
 
@@ -485,9 +575,9 @@ VerticalBlank SUBROUTINE
 OverScan SUBROUTINE
 ;---------------------------------------------------------------
   IF NTSC
-    lda     #36
+    lda     #36-4
   ELSE
-    lda     #63
+    lda     #63-4
   ENDIF
     sta     TIM64T
 
@@ -541,6 +631,58 @@ MessageCode
 _QR_TOTAL SET _QR_TOTAL + . - MessageCode
 
     GEN_QR_CODE
+
+  IF QR_SPRITE_GFX = 0
+; rearrange bitmap data for PF display
+;           |  P0L   |   P1   |  P0R   |
+;          X|XXXXXXXX|XXXXXXXX|XXXXXXXX|
+; |PF0 |  PF1   |  PF2   |PF0 |  PF1   |  PF2   |
+; |    |7......0|0......7|4..7|7......0|        |
+; |....|...XXXXX|XXXXXXXX|XXXX|XXXXXXXX|........|
+.tmpLeft    = tmpVars
+
+    ldx     #QR_SIZE-1
+.loopRows
+; rearrange grp0LLst & grp1Lst into pf0R1LLst
+    lda     grp0LLst,x
+    sta     .tmpLeft
+    lda     grp1Lst,x
+    ldy     #4
+.loopShift01a
+    lsr                     ; 3..0 -> 0..3
+    rol     grp0LLst,x
+    dey
+    bne     .loopShift01a
+    lda     .tmpLeft
+    ldy     #4
+.loopShift01b
+    asl
+    rol     grp0LLst,x
+    dey
+    bne     .loopShift01b
+; rearrange grp0LLst & grp1Lst into pf2LLst
+    lda     grp1Lst,x
+    lsr
+    lsr
+    lsr
+    lsr
+    ldy     #4
+.loopShift2a
+    lsr
+    rol     grp1Lst,x
+    dey
+    bne     .loopShift2a
+    lda     .tmpLeft
+    ldy     #4
+.loopShift2b
+    lsr
+    rol     grp1Lst,x
+    dey
+    bne     .loopShift2b
+; loop
+    dex
+    bpl     .loopRows
+  ENDIF
     rts
 
 BitMapCode
@@ -671,6 +813,7 @@ FirstIdxTbl ; for 25 pixel
   ELSE
     .byte   $3f     ; 1st format bit is 0
   ENDIF
+    CHECKPAGE FirstIdxTbl
 
     ECHO    "QR Code function modules data:", [. - FunctionModulesData]d, "bytes"
 _QR_TOTAL SET _QR_TOTAL + . - FunctionModulesData
