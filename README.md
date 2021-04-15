@@ -1,7 +1,7 @@
 <img align="right" src="https://github.com/thrust26/6502-QR-code-generator/blob/master/QR-Code.png"/>
 
 # 6502-QR-code-generator
-A simple DASM assembler library for creating small QR codes
+A simple and free DASM assembler library for creating small QR codes
 
 ## Introduction
 This project provides a simple QR code generator for the 650x family. 
