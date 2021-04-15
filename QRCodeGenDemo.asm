@@ -1,4 +1,4 @@
-; QR Code generator demo V0.4
+; QR Code generator demo V0.5
 ; (C) 2021 Thomas Jentzsch
 
 ; TODOs
@@ -40,16 +40,16 @@ ATARI_2600      = 1     ; enable for Atari 2600 specific code
 ; QR Code Generator Switches
 QR_VERSION      = 2     ; 1, 2 or 3 (TODO 1 and 3)
 QR_LEVEL        = 1     ; 0 (L), 1 (M), 2 (Q) and 3 (H))
+QR_SINGLE_MASK  = 0     ; (-255 bytes) use only the 1st of the 8 mask pattern
 QR_PADDING      = 1     ; (+ 22 bytes) add padding bytes (optional)
-QR_GENERATE     = 0     ; (+~12 bytes) generates Reed-Solomon ECC generator polynomial on-the-fly
-                        ;   else uses built-in table
+QR_GENERATE     = 0     ; (+~12 bytes) generate Reed-Solomon ECC generator polynomial on-the-fly
+                        ;   else use built-in table
 
 ; Atari 2600 specific QR settings (keep set to 0 for other platforms!)
   IFCONST ATARI_2600
 QR_OVERLAP      = 1     ; overlaps input and output data to save RAM (defined for version 2 only!)
-QR_SINGLE_MASK  = 0     ; (-255 bytes) if 1 uses only 1 of the 8 mask pattern
 QR_DIRECT_DRAW  = 0     ; (+ 45 bytes) draw byte columns instead of individual pixel
-QR_SPRITE_GFX   = 0     ; display playfield or sprite graphics
+QR_SPRITE_GFX   = 1     ; display playfield or sprite graphics
   ENDIF
 
   IF QR_VERSION != 2
@@ -57,13 +57,6 @@ QR_SPRITE_GFX   = 0     ; display playfield or sprite graphics
     ECHO    "*** ERROR: Version", [QR_VERSION]d, "unsupported by demo code! ***"
     ERR
   ENDIF
-
-  IF QR_SINGLE_MASK = 1 && QR_DIRECT_DRAW = 0
-    ECHO    ""
-    ECHO    "*** ERROR: Unsupported assembler switches combination! ***"
-    ERR
-  ENDIF
-
 
 ;===============================================================================
 ; C O N S T A N T S
@@ -631,11 +624,12 @@ _QR_TOTAL SET _QR_TOTAL + . - MessageCode
 
   IF QR_SPRITE_GFX = 0
 ; rearrange bitmap data for PF display
-;           |  P0L   |   P1   |  P0R   |
-;          X|XXXXXXXX|XXXXXXXX|XXXXXXXX|
 ; |PF0 |  PF1   |  PF2   |PF0 |  PF1   |  PF2   |
 ; |    |7......0|0......7|4..7|7......0|        |
 ; |....|...XXXXX|XXXXXXXX|XXXX|XXXXXXXX|........|
+;           |  P0L   |   P1   |  P0R   |
+;          0|abcdefgh|ijklmnop|qrstuvwx| ->
+;       -> 0|ponmabcd|lkjihgfe|qrstuvwx|
 .tmpLeft    = qrTmpVars
 
     ldx     #QR_SIZE-1

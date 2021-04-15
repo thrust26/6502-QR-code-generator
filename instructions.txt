@@ -5,16 +5,17 @@ Instructions:
 1. Include QRCodeGen.inc into the code area of your own code
 
 2. Define the following constants:
-   - QR_VERSION  = 1..3	; QR code size (21, 25, 29)
-   - QR_LEVEL    = 0..3	; error correction levels L, M, Q, H
-   - QR_PADDING  = 0|1	; add padding bytes add the end of test message text
-   - QR_GENERATE = 0|1	; generate Reed-Solomon ECC generator polynomial on-the-fly
-                        ;   else use built-in table
+   - QR_VERSION     = 1..3  ; QR code size (21, 25, 29)
+   - QR_LEVEL       = 0..3  ; error correction levels L, M, Q, H
+   - QR_SINGLE_MASK = 0|1   ; use only the 1st of the 8 mask pattern
+   - QR_PADDING     = 0|1   ; add padding bytes add the end of test message text
+   - QR_GENERATE    = 0|1   ; generate Reed-Solomon ECC generator polynomial on-the-fly
+                            ;   else use built-in table
 
 3. Define memory for code generation and displayed bitmap:
-   - qrTmpVars 	    ds 9
-   - qrData 	    ds QR_TOTAL
-   - qrPattern 	    ds 1
+   - qrTmpVars      ds 9
+   - qrData         ds QR_TOTAL
+   - qrPattern      ds 1
    - qrGenerator    ds QR_DEGREE (only required if QR_GENERATE = 1)
    - bitmap         depends on platform
 

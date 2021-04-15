@@ -8,6 +8,9 @@ QR_VERSION      = 2     ; 1..3, QR code size (21, 25, 29)
   IFNCONST QR_LEVEL
 QR_LEVEL        = 0     ; 0..4, error correction levels L, M, Q, H
   ENDIF
+  IFNCONST QR_SINGLE_MASK
+QR_SINGLE_MASK  = 0     ; 0|1, use only 1 of the 8 mask pattern
+  ENDIF
   IFNCONST QR_PADDING
 QR_PADDING      = 1     ; 0|1, add padding bytes add the end of test message text
   ENDIF
@@ -671,7 +674,11 @@ DrawPattern SUBROUTINE
 .loopFormat
     sty     .idx
     cpy     #8
+  IF QR_SINGLE_MASK
+    ldx     #0
+  ELSE
     ldx     qrPattern
+  ENDIF
     lda     FormatLo,x
     and     BitMask,y
     bcc     .lowFormat
@@ -838,7 +845,7 @@ PatternWidth
     .byte   1                       ; left, vertical timing line
     .byte   9, 9, 8                 ; eye pattern
     .byte   4, 1                    ; alignment pattern (right/middle part)
-    .byte   QR_SIZE - 9 - 8         ; top, horizontal timing line
+;    .byte   QR_SIZE - 9 - 8         ; top, horizontal timing line
 PatternHeight
     .byte   QR_SIZE - 9 - 8         ; left, vertical timing line
     .byte   9, 8, 9                 ; eye pattern
