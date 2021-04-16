@@ -22,16 +22,15 @@ Instructions:
 4. Implement two subroutines:
    - GetPixel: checks the pixel at position x (Y), y (X), returns Z = 1 if not set
    - InvertPixel: inverts the pixel at position x (Y), y (X)
+   Note: Both routines MUST NOT change X and Y registers!
 
-5. Add the macros GEN_QR_CODE and QR_CODE_DATA to your code area
+5. Add message text using the START_MSG, n x ADD_MSG_BYTE, STOP_MSG
 
-6. Add message text using the START_MSG, n x ADD_MSG_BYTE, STOP_MSG
+6. Set qrPattern to 0..7 (chosing a mask pattern)
 
-7. Set qrPattern to 0..7 (chosing a mask pattern)
+7. Use the GEN_QR_CODE and QR_CODE_DATA macros
 
-8. Call the GEN_QR_CODE macro
-
-9. Draw the generated QR code bitmap
+8. Draw the generated QR code bitmap
 
 That's all! :)
 

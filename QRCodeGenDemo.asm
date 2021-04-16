@@ -12,7 +12,7 @@
 ;   + optimize single pattern for space
 ; x support multiple QR code versions
 ; o support multiple QR code levels
-; x try to optimize function pattern (SetPixel)
+; + try to optimize function pattern (SetPixel)
 ; x add logo (does NOT work for such small sizes)
 
 ;---------------------------------------------------------------
@@ -57,6 +57,7 @@ QR_SPRITE_GFX   = 1     ; display playfield or sprite graphics
     ECHO    "*** ERROR: Version", [QR_VERSION]d, "unsupported by demo code! ***"
     ERR
   ENDIF
+
 
 ;===============================================================================
 ; C O N S T A N T S
@@ -515,14 +516,14 @@ InitDemo SUBROUTINE
     sta     NUSIZ0
     sta     VDELP1
 
-    ldx     #$3f
+    ldx     #$6f
     stx     HMP0
     inx
     stx     HMP1
-    lda     #$a0
+    lda     #$d0
     sta     HMM1
 
-    SLEEP   5
+    SLEEP   4
 
     sta     RESM1
     sta     RESP0
@@ -811,7 +812,7 @@ _QR_TOTAL SET _QR_TOTAL + . - FunctionModulesData
 
     QR_CODE_DATA
 
-    .byte   " QR Code Generator Demo V0.4 - (C)2021 Thomas Jentzsch "
+    .byte   " QR Code Generator Demo V0.5 - (C)2021 Thomas Jentzsch "
 
 ; messages MUST NOT be longer than 26 bytes for version 2, level M!
 MessageTbl

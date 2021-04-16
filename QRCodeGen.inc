@@ -502,8 +502,11 @@ DrawPattern SUBROUTINE
     ldy     .right1
     dey
     dey
-;    bpl     .loopRight      ; unconditional!
-    jmp     .loopRight      ; unconditional!
+  IF QR_OVERLAP
+    jmp     .loopRight
+  ELSE
+    bpl     .loopRight      ; unconditional!
+  ENDIF
 ; } // for right
 .exitDraw
   ENDM
@@ -977,7 +980,11 @@ FormatHi
 ; positions of the 15 type information bits
 FormatX1
     .byte   0, 1, 2, 3, 4, 5, 7, 8
-    .byte   8, 8, 8, 8, 8, 8, 8
+;    ds      7, 8           ; shared
+FormatX2
+    ds      7, 8
+    .byte   QR_SIZE-8, QR_SIZE-7, QR_SIZE-6, QR_SIZE-5
+    .byte   QR_SIZE-4, QR_SIZE-3, QR_SIZE-2, QR_SIZE-1
 FormatY2
     .byte   0, 1, 2, 3, 4, 5, 6
 ;    ds      8, QR_SIZE-9   ; shared
@@ -985,10 +992,6 @@ FormatY1
     ds      8, QR_SIZE-9
     .byte   QR_SIZE-8, QR_SIZE-6, QR_SIZE-5, QR_SIZE-4
     .byte   QR_SIZE-3, QR_SIZE-2, QR_SIZE-1
-FormatX2
-    ds      7, 8
-    .byte   QR_SIZE-8, QR_SIZE-7, QR_SIZE-6, QR_SIZE-5
-    .byte   QR_SIZE-4, QR_SIZE-3, QR_SIZE-2, QR_SIZE-1
   ENDIF ; /QR_SINGLE_MASK = 0 || QR_DIRECT_DRAW = 0
 
 BitMask
