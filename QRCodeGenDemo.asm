@@ -345,7 +345,7 @@ BLOCK_H     = 2
     bne     .enterLoop
 
 ; the QR code kernel
-.loopKernel                 ;           @53
+LoopKernel                  ;           @53
     lda     FirstIdxTbl,x   ; 4*
     cmp     #1              ; 2
     bcs     .newFirst       ; 2/3
@@ -381,7 +381,8 @@ BLOCK_H     = 2
     dex                     ; 2
     sta     GRP0            ; 3 = 16    @48
     bcs     .loopBlock      ; 2/3
-    bpl     .loopKernel     ; 3/2=5/4
+    bpl     LoopKernel      ; 3/2=5/4
+    CHECKPAGE LoopKernel
     sta     WSYNC
 ;---------------------------------------------------------------
     sty     ENAM1
@@ -417,7 +418,7 @@ BLOCK_H     = 7
     beq     .contBlock      ; 3
 
 ; the QR code kernel
-.loopKernel                 ;           @47/48
+LoopKernel                  ;           @47/48
     lda     FirstIdxTbl,x   ; 4
     sty     PF0             ; 3
     sty     PF2             ; 3
@@ -457,7 +458,8 @@ BLOCK_H     = 7
     dey                     ; 2
     bne     .loopBlock      ; 3/2
     dex                     ; 2
-    bpl     .loopKernel     ; 3/2=9/8   @47/48
+    bpl     LoopKernel      ; 3/2=9/8   @47/48
+    CHECKPAGE LoopKernel
     SLEEP   2               ; 2
     sty     PF2             ; 3         @51/52
     sty     PF0             ; 3         @54/55

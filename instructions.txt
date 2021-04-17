@@ -24,7 +24,10 @@ Instructions:
    - InvertPixel: inverts the pixel at position x (Y), y (X)
    Note: Both routines MUST NOT change X and Y registers!
 
-5. Add message text using the START_MSG, n x ADD_MSG_BYTE, STOP_MSG
+5. Add message text using macros
+   - first START_MSG
+   - then for each byte ADD_MSG_BYTE
+   - finally STOP_MSG
 
 6. Set qrPattern to 0..7 (chosing a mask pattern)
 
@@ -33,4 +36,3 @@ Instructions:
 8. Draw the generated QR code bitmap
 
 That's all! :)
-
